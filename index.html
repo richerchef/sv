@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spatial Walkthrough Demo</title>
+
+  <!-- Pannellum -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- Header -->
+    <header id="header">
+      <button id="sidebar-toggle">☰</button>
+      <h1>Spatial Walkthrough</h1>
+    </header>
+
+    <!-- Main content -->
+    <div id="main-content">
+
+      <!-- LEFT PANEL -->
+      <aside id="controls">
+        <h2 id="scene-title">Scene</h2>
+        <div class="panel">
+          <button id="select-scene">Select Scene</button>
+        </div>
+
+        <!-- Filters -->
+        <div class="panel">
+          <strong>Filters</strong>
+          <label>
+            <input type="checkbox" class="filter" value="pump" checked />
+            Pumps
+          </label>
+          <label>
+            <input type="checkbox" class="filter" value="valve" checked />
+            Valves
+          </label>
+        </div>
+
+        <!-- Search -->
+        <div class="panel">
+          <input
+            type="text"
+            id="search"
+            placeholder="Search components…"
+          />
+          <ul id="results"></ul>
+        </div>
+
+        <!-- See More Dates Button -->
+        <div class="panel">
+          <button id="see-more-dates">See More Dates</button>
+        </div>
+      </aside>
+
+      <!-- VIEWER -->
+      <main id="viewer-container">
+        <div id="viewer"></div>
+        <div id="hotspot-info" class="hidden"></div>
+        <!-- Compass and Date in bottom right -->
+        <div id="compass-container">
+          <div id="compass">
+            <div id="compass-needle"></div>
+          </div>
+          <div id="capture-date"></div>
+        </div>
+      </main>
+
+    </div>
+
+    <!-- Footer -->
+    <footer id="footer">
+      <p>&copy; 2026 Spatial Walkthrough Demo</p>
+    </footer>
+
+  <!-- App scripts (viewer + helpers first, then app) -->
+  <script src="js/urlState.js"></script>
+  <script src="js/hotspots.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/viewer.js"></script>
+
+</body>
+</html>

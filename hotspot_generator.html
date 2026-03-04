@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hotspot Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 12px; }
+    #image-wrap { max-width: 900px; border: 1px solid #ccc; display:inline-block; position:relative; }
+    #target-img { max-width: 900px; display:block; }
+    .marker { position:absolute; width:14px; height:14px; background:#ff5722; border-radius:50%; transform:translate(-50%,-50%); border:2px solid #fff; }
+    #controls { display:inline-block; vertical-align:top; margin-left:16px; }
+    #hotspots-list { margin-top:8px; }
+    #hotspots-list li { margin-bottom:6px; }
+  </style>
+</head>
+<body>
+  <h2>Hotspot Generator</h2>
+  <div>
+    <label>Scene: <select id="scene-select"></select></label>
+    <label> Image: <select id="image-select"></select></label>
+    <button id="load-image">Load</button>
+  </div>
+  <div style="margin-top:12px;">
+    <div id="image-wrap"><img id="target-img" src="" alt="" /></div>
+    <div id="controls">
+      <div>
+        <label>Hotspot ID: <input id="hs-id" /></label>
+        <button id="add-manual">Add</button>
+      </div>
+      <div id="info">Click the image to add a hotspot. Coordinates are converted to yaw/pitch for equirectangular images.</div>
+      <h4>Hotspots</h4>
+      <ul id="hotspots-list"></ul>
+      <button id="save-json">Save JSON</button>
+      <input type="file" id="load-json" />
+    </div>
+  </div>
+
+  <script>
+    let scenes;
+    let currentImageSrc = '';
+    let hotspots = []; // { id, yaw, pitch }
+
+    async function init() {
+      scenes = await fetch('data/scenes.json').then(r=>r.json());
+      const sceneSelect = document.getElementById('scene-select');
+      scenes.scenes.forEach(s => {
+        const opt = document.createElement('option'); opt.value = s.id; opt.textContent = s.name; sceneSelect.appendChild(opt);
+      });
+      sceneSelect.onchange = populateImages;
+      populateImages();
+      document.getElementById('load-image').onclick = loadSelectedImage;
+      document.getElementById('target-img').onclick = imageClick;
+      document.getElementById('add-manual').onclick = addManual;
+      document.getElementById('save-json').onclick = saveJson;
+      document.getElementById('load-json').onchange = loadJsonFile;
+    }
+
+    function populateImages() {
+      const sceneId = document.getElementById('scene-select').value;
+      const s = scenes.scenes.find(x=>x.id===sceneId);
+      const select = document.getElementById('image-select'); select.innerHTML='';
+      if (!s) return;
+      if (Array.isArray(s.images)) s.images.forEach(fn => appendOpt(select, fn));
+      else if (typeof s.images === 'object') Object.values(s.images).forEach(fn => appendOpt(select, fn));
+    }
+    function appendOpt(sel, val){ const o=document.createElement('option'); o.value=val; o.textContent=val; sel.appendChild(o); }
+
+    function loadSelectedImage() {
+      const img = document.getElementById('target-img');
+      const sel = document.getElementById('image-select');
+      if (!sel.value) return;
+      img.src = 'images/' + sel.value;
+      currentImageSrc = sel.value;
+      hotspots = [];
+      renderList();
+      // remove existing markers
+      const wrap = document.getElementById('image-wrap'); Array.from(wrap.querySelectorAll('.marker')).forEach(m=>m.remove());
+    }
+
+    function imageClick(e) {
+      const img = e.target;
+      if (!img.naturalWidth) return;
+      const rect = img.getBoundingClientRect();
+      const x = (e.clientX - rect.left);
+      const y = (e.clientY - rect.top);
+      const nx = x / rect.width;
+      const ny = y / rect.height;
+      // convert to yaw/pitch: yaw = nx*360-180, pitch = 90 - ny*180
+      const yaw = nx*360 - 180;
+      const pitch = 90 - ny*180;
+      // place marker
+      placeMarker(e.clientX - rect.left, e.clientY - rect.top);
+      document.getElementById('hs-id').value = '';
+      document.getElementById('hs-id').focus();
+      // stash the last coords
+      window._lastHotspot = { yaw: Number(yaw.toFixed(3)), pitch: Number(pitch.toFixed(3)) };
+      document.getElementById('info').textContent = `Detected yaw: ${window._lastHotspot.yaw}, pitch: ${window._lastHotspot.pitch}. Enter id and click Add.`;
+    }
+
+    function placeMarker(x,y){
+      const wrap = document.getElementById('image-wrap');
+      const m = document.createElement('div'); m.className='marker'; m.style.left = x + 'px'; m.style.top = y + 'px'; wrap.appendChild(m);
+    }
+
+    function addManual(){
+      const id = document.getElementById('hs-id').value.trim();
+      if (!id) return alert('Enter id');
+      if (!window._lastHotspot) return alert('Click an image position first');
+      hotspots.push({ id: id, yaw: window._lastHotspot.yaw, pitch: window._lastHotspot.pitch });
+      renderList();
+      document.getElementById('hs-id').value='';
+    }
+
+    function renderList(){
+      const ul = document.getElementById('hotspots-list'); ul.innerHTML='';
+      hotspots.forEach((h,i)=>{
+        const li = document.createElement('li');
+        li.textContent = `${h.id} — yaw:${h.yaw} pitch:${h.pitch}`;
+        const del = document.createElement('button'); del.textContent='Delete'; del.style.marginLeft='8px'; del.onclick=()=>{ hotspots.splice(i,1); renderList(); };
+        li.appendChild(del);
+        ul.appendChild(li);
+      });
+    }
+
+    function saveJson(){
+      if (!currentImageSrc) return alert('Load an image first');
+      const out = {};
+      out[currentImageSrc] = hotspots;
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hotspots_' + currentImageSrc.replace(/\.[^/.]+$/, '') + '.json'; a.click();
+    }
+
+    function loadJsonFile(e){
+      const f = e.target.files[0]; if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          // expect object keyed by image filename
+          const key = Object.keys(data)[0];
+          const arr = data[key];
+          hotspots = Array.isArray(arr) ? arr : [];
+          renderList();
+          // show markers based on mapped coords by converting yaw/pitch back to image xy
+          const img = document.getElementById('target-img');
+          const rect = img.getBoundingClientRect();
+          // remove previous markers
+          const wrap = document.getElementById('image-wrap'); Array.from(wrap.querySelectorAll('.marker')).forEach(m=>m.remove());
+          hotspots.forEach(h => {
+            const nx = (h.yaw + 180) / 360;
+            const ny = (90 - h.pitch) / 180;
+            const x = nx * rect.width; const y = ny * rect.height;
+            placeMarker(x,y);
+          });
+        } catch (err) { alert('Invalid JSON'); }
+      };
+      reader.readAsText(f);
+    }
+
+    init();
+  </script>
+</body>
+</html>
