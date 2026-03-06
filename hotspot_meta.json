@@ -1,0 +1,6 @@
+{
+  "hs_pump_01": { "label": "Main Feed Pump", "type": "pump", "description": "Primary feed pump supplying the system" },
+  "hs_valve_01": { "label": "Isolation Valve", "type": "valve", "description": "Manual isolation valve" },
+  "hs_pump_02": { "label": "Auxiliary Pump", "type": "pump", "description": "Backup auxiliary pump" },
+  "hs_valve_02": { "label": "Control Valve", "type": "valve", "description": "Automatically actuated control valve" }
+}

@@ -1,0 +1,13 @@
+{
+  "engine_room_12_05_2022.png": [
+    { "id": "hs_pump_01", "yaw": 30, "pitch": -10 },
+    { "id": "hs_valve_01", "yaw": -45, "pitch": -5 }
+  ],
+  "engine_room_01_06_2023.png": [
+    { "id": "hs_pump_01", "yaw": 32, "pitch": -9 }
+  ],
+  "pump_gallery_12_05_2022.png": [
+    { "id": "hs_pump_02", "yaw": 110, "pitch": -12 },
+    { "id": "hs_valve_02", "yaw": -130, "pitch": 0 }
+  ]
+}

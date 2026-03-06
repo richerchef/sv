@@ -1,0 +1,28 @@
+{
+  "scenes": [
+    {
+      "id": "engine_room",
+      "name": "Engine Room",
+      "images": {
+        "12_05_2022": "engine_room_12_05_2022.png",
+        "01_06_2023": "engine_room_01_06_2023.png",
+        "15_07_2024": "engine_room_15_07_2024.png"
+      },
+      "links": [
+        { "to": "pump_gallery", "yaw": 45, "pitch": 0, "label": "To Pump Gallery" }
+      ]
+    },
+    {
+      "id": "pump_gallery",
+      "name": "Pump Gallery",
+      "images": {
+        "12_05_2022": "pump_gallery_12_05_2022.png",
+        "01_06_2023": "pump_gallery_01_06_2023.png",
+        "15_07_2024": "pump_gallery_15_07_2024.png"
+      },
+      "links": [
+        { "to": "engine_room", "yaw": -120, "pitch": 0, "label": "Back to Engine Room" }
+      ]
+    }
+  ]
+}
