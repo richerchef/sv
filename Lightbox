@@ -1,3 +1,26 @@
+# My Interactive Dashboard
+
+<div class="grid cards" markdown>
+
+???+ info "Sales Performance (2024)"
+    Interactive chart showing annual revenue.
+    <iframe src="https://example.com/your-plotly-chart-1.html" width="100%" height="350px" style="border:none;"></iframe>
+
+???+ success "User Growth Metrics"
+    Real-time tracking of new signups.
+    <iframe src="https://example.com/your-plotly-chart-2.html" width="100%" height="350px" style="border:none;"></iframe>
+
+???+ warning "Regional Heatmap"
+    Customer distribution by geography.
+    <iframe src="https://example.com/your-plotly-chart-3.html" width="100%" height="350px" style="border:none;"></iframe>
+
+</div>
+
+<iframe src="chart.html" loading="lazy" ...></iframe>
+
+
+
+
 [Click to open HTML Content](path/to/file.html){: .glightbox data-glightbox="type: iframe;"}
 
 <a href="../folder/your-file.html" class="glightbox" data-glightbox="type: iframe;">
