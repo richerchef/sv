@@ -1,0 +1,10 @@
+[Click to open HTML Content](path/to/file.html){: .glightbox data-glightbox="type: iframe;"}
+
+<a href="../folder/your-file.html" class="glightbox" data-glightbox="type: iframe;">
+    View Interactive Content
+</a>
+
+
+<a href="interactive-report.html" class="glightbox" data-glightbox="type: iframe;">
+  <img src="thumbnail.png" alt="Open Report" />
+</a>
