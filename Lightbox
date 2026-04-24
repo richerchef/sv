@@ -1,3 +1,24 @@
+import pandas as pd
+import plotly.express as px
+
+# 1. Identify where the status changes
+# We compare the current row to the next row
+change_indices = df['status'] != df['status'].shift(-1)
+
+# 2. Identify the rows immediately AFTER a change
+# (This ensures we capture the first point of the new status)
+after_change = df['status'] != df['status'].shift(1)
+
+# 3. Combine them: Keep any row that is either a start or an end of a state
+# We also keep the very first and very last rows to ensure the plot is complete
+reduced_df = df[change_indices | after_change].copy()
+
+# 4. Plotting
+fig = px.line(reduced_df, x='timestamp', y='status', title="Digital Status (Optimized)")
+# Ensure lines are 'HV' (Horizontal-Vertical) for extra safety, 
+# though the data reduction above fixes the "slope" issue.
+fig.update_traces(line_shape='hv') 
+fig.show()
 # My Interactive Dashboard
 
 <div class="grid cards" markdown>
