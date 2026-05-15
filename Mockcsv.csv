@@ -1,0 +1,7 @@
+date,platform,sensor,value,quality_score
+2026-01-01,Alpha,Temperature,22.5,0.98
+2026-01-02,Alpha,Temperature,23.1,0.99
+2026-01-01,Beta,Pressure,101.3,0.95
+2026-01-02,Beta,Pressure,102.1,0.40
+2026-01-01,Gamma,Vibration,0.02,0.88
+  
