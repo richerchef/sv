@@ -1,0 +1,71 @@
+import pandas as pd
+
+# 1. Define your parameters
+channels = ['channel_1', 'channel_2', 'channel_3', 'channel_4']
+platforms = ['Platform_A', 'Platform_B']
+start_date = 20260101
+end_date = 20260131
+
+# This is your original, clean SQL query template
+query_template = """
+SELECT 
+    CASE {channel_col}
+        WHEN 1 THEN 'Open'
+        WHEN 2 THEN 'Shut'
+        WHEN 3 THEN 'Trip'
+        WHEN 4 THEN 'Fault'
+        ELSE 'Unknown'
+    END AS state_description,
+    COUNT(*) / 3600.0 AS total_hours
+FROM 
+    {platform_table}
+WHERE 
+    dateid BETWEEN {start} AND {end}
+    AND {channel_col} IN (1, 2, 3, 4)
+GROUP BY 
+    {channel_col};
+"""
+
+# 2. Initialize an empty list to store data from each run
+all_data = []
+
+# Mock database execution function (Replace this with your actual DB connection code)
+def run_query(sql_query):
+    # Example using sqlalchemy/pandas: 
+    # return pd.read_sql(sql_query, db_connection)
+    pass
+
+# 3. The Loop
+for platform in platforms:
+    for channel in channels:
+        # Format the SQL string with the current loop's parameters
+        formatted_query = query_template.format(
+            channel_col=channel,
+            platform_table=platform, # Assuming platforms map to different tables/views
+            start=start_date,
+            end=end_date
+        )
+        
+        # Execute query and get a temporary DataFrame for this specific loop
+        df_temp = run_query(formatted_query)
+        
+        # Add tracking columns so we know where this data came from
+        df_temp['platform'] = platform
+        df_temp['channel'] = channel
+        
+        # Append to our master list
+        all_data.append(df_temp)
+
+# 4. Combine all small DataFrames into one master DataFrame
+df_master = pd.concat(all_data, ignore_index=True)
+
+# 5. Optional: Pivot the data to make it look beautiful for reporting
+# This changes it from a long list into a clean grid
+df_report = df_master.pivot_table(
+    index=['platform', 'state_description'], 
+    columns='channel', 
+    values='total_hours',
+    fill_value=0 # Replaces missing states with 0 hours
+)
+
+print(df_report)
