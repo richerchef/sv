@@ -86,3 +86,28 @@ def update_estimated_time(tool_name, input_values, input_ids):
 if __name__ == '__main__':
     app.run_server(debug=True)
   
+import pandas as pd
+import plotly.express as px
+import time
+
+def run_heavy_calculation(sensor_id: ['Sensor_A', 'Sensor_B'], complexity: ['Simple', 'Deep Learning']):
+    """Performs complex algorithmic modeling on hardware streams."""
+    # Simulation of variable runtime
+    if complexity == 'Deep Learning':
+        time.sleep(5) 
+    else:
+        time.sleep(1)
+        
+    df = pd.DataFrame({'X': [1, 2, 3], 'Y': [4, 5, 6]})
+    fig = px.line(df, x='X', y='Y', title="Analysis Complete")
+    
+    return {"dataframe": df, "figure": fig, "summary_text": "Completed successfully."}
+
+# --- THE ESTIMATION MAP ---
+# Keys are tuples representing the matching argument values in order of the function signature
+run_heavy_calculation.estimated_times = {
+    ('Sensor_A', 'Simple'): "1-2 seconds",
+    ('Sensor_A', 'Deep Learning'): "5-10 seconds",
+    ('Sensor_B', 'Simple'): "2-3 seconds",
+    ('Sensor_B', 'Deep Learning'): "12-15 seconds",
+}
