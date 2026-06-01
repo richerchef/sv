@@ -1,0 +1,75 @@
+WITH FastPreparedData AS (
+    SELECT 
+        Dateid,
+        timeid,
+        test_state,
+        
+        -- 1. EXTRACT YEAR, MONTH, DAY USING INTEGER MATH
+        -- Example: 25122026 -> Day: 25, Month: 12, Year: 2026
+        CAST(Dateid % 10000 AS BIGINT) AS v_year,                        -- Rightmost 4 digits
+        CAST((Dateid / 10000) % 100 AS BIGINT) AS v_month,               -- Middle 2 digits
+        CAST(Dateid / 1000000 AS BIGINT) AS v_day,                       -- Leftmost 2 digits
+        
+        -- 2. CONVERT NATIVE COMPONENTS TO A LINEAR CHRONOLOGICAL SECOND COUNT
+        -- Multiplying by rough seconds per year/month/day keeps everything in perfect linear order.
+        (
+            (CAST(Dateid % 10000 AS BIGINT) * 31536000) +        -- Year to seconds
+            (CAST((Dateid / 10000) % 100 AS BIGINT) * 2678400) +  -- Month to seconds (approx 31 days)
+            (CAST(Dateid / 1000000 AS BIGINT) * 86400) +          -- Day to seconds (exactly 24 hours)
+            CAST(timeid AS BIGINT)                                -- Add current day's seconds
+        ) AS linear_seconds
+    FROM your_table_name
+    WHERE test_state IN (1, 2, 3, 4) -- Drop irrelevant data early to save memory
+),
+
+WindowAnalysis AS (
+    SELECT 
+        Dateid,
+        timeid,
+        test_state AS state_1,
+        linear_seconds AS start_linear_time,
+        
+        -- 3. LOOK AHEAD THE NEXT 3 CHRONOLOGICAL EVENTS
+        LEAD(test_state, 1) OVER (ORDER BY linear_seconds) AS state_2,
+        LEAD(test_state, 2) OVER (ORDER BY linear_seconds) AS state_3,
+        LEAD(test_state, 3) OVER (ORDER BY linear_seconds) AS state_4,
+        
+        -- Pull the linear timestamp of the 4th event
+        LEAD(linear_seconds, 3) OVER (ORDER BY linear_seconds) AS end_linear_time,
+        
+        -- Pull the native Dateid/timeid of the 4th event for clean final reporting
+        LEAD(Dateid, 3) OVER (ORDER BY linear_seconds) AS end_dateid,
+        LEAD(timeid, 3) OVER (ORDER BY linear_seconds) AS end_timeid
+    FROM FastPreparedData
+)
+
+-- 4. FILTER AND FORMAT THE FINAL OUTPUT
+SELECT 
+    -- Start Window Information
+    Dateid AS start_dateid,
+    timeid AS start_timeid,
+    
+    -- End Window Information
+    end_dateid,
+    end_timeid,
+    
+    -- Total duration of the 4 tests in seconds
+    (end_linear_time - start_linear_time) AS duration_seconds,
+    
+    -- Dynamically maps out whatever sequence happened (e.g., '1-2-3-4', '2-1-3-4', '4-3-2-1')
+    CONCAT(
+        CAST(state_1 AS VARCHAR), '-', 
+        CAST(state_2 AS VARCHAR), '-', 
+        CAST(state_3 AS VARCHAR), '-', 
+        CAST(state_4 AS VARCHAR)
+    ) AS sequence
+
+FROM WindowAnalysis
+-- Strict Constraint: The 4th test must finish within 1 hour (3600 seconds) of the 1st test starting
+WHERE (end_linear_time - start_linear_time) <= 3600 
+
+-- Optional Filter: Uncomment if you only want sequences where the state actually changed 
+-- (Stops a '1-1-1-2' repeating pattern from showing up if a state logs multiple rows)
+-- AND state_1 != state_2 AND state_2 != state_3 AND state_3 != state_4
+
+ORDER BY start_linear_time;
