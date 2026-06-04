@@ -1,4 +1,4 @@
-WITH FastPreparedData AS (
+I'mWITH FastPreparedData AS (
     SELECT 
         Dateid,
         timeid,
@@ -73,3 +73,60 @@ WHERE (end_linear_time - start_linear_time) <= 3600
 -- AND state_1 != state_2 AND state_2 != state_3 AND state_3 != state_4
 
 ORDER BY start_linear_time;
+
+
+WITH LinearTimestamps AS (
+    -- Step 1: Filter down to ONLY when channels turn ON (1) 
+    -- This instantly eliminates the "flickering" noise when channels bounce on/off
+    SELECT 
+        Dateid,
+        timeid,
+        Channel_1, Channel_2, Channel_3, Channel_4,
+        -- Pure math conversion to linear seconds (No slow date parsing)
+        (
+            (CAST(Dateid % 10000 AS BIGINT) * 31536000) +        
+            (CAST((Dateid / 10000) % 100 AS BIGINT) * 2678400) +  
+            (CAST(Dateid / 1000000 AS BIGINT) * 86400) +          
+            CAST(timeid AS BIGINT)                                
+        ) AS linear_seconds
+    FROM your_table_name
+    WHERE Channel_1 = 1 OR Channel_2 = 1 OR Channel_3 = 1 OR Channel_4 = 1
+),
+
+ChannelFirstHits AS (
+    -- Step 2: For every row, find the NEXT time each specific channel turns ON
+    -- This handles patchy data because LEAD looks forward until it finds a match, ignoring gaps.
+    SELECT 
+        linear_seconds AS t1_time,
+        Dateid AS start_dateid,
+        timeid AS start_timeid,
+        Channel_1,
+        
+        -- Look forward to find the next absolute time Channel 2, 3, and 4 turn ON
+        MIN(CASE WHEN Channel_2 = 1 THEN linear_seconds END) OVER (
+            ORDER BY linear_seconds ROWS BETWEEN 1 FOLLOWING AND 100 FOLLOWING
+        ) AS t2_time,
+        
+        MIN(CASE WHEN Channel_3 = 1 THEN linear_seconds END) OVER (
+            ORDER BY linear_seconds ROWS BETWEEN 1 FOLLOWING AND 100 FOLLOWING
+        ) AS t3_time,
+        
+        MIN(CASE WHEN Channel_4 = 1 THEN linear_seconds END) OVER (
+            ORDER BY linear_seconds ROWS BETWEEN 1 FOLLOWING AND 100 FOLLOWING
+        ) AS t4_time
+    FROM LinearTimestamps
+)
+
+-- Step 3: Filter for the strict 1 -> 2 -> 3 -> 4 sequence within 1 hour
+SELECT 
+    start_dateid,
+    start_timeid,
+    (t4_time - t1_time) AS total_duration_seconds,
+    '1-2-3-4' AS sequence
+FROM ChannelFirstHits
+WHERE Channel_1 = 1                -- Start with Channel 1 turning ON
+  AND t2_time > t1_time            -- Channel 2 happens after Channel 1
+  AND t3_time > t2_time            -- Channel 3 happens after Channel 2
+  AND t4_time > t3_time            -- Channel 4 happens after Channel 3
+  AND (t4_time - t1_time) <= 3600  -- The entire sequence completes within 1 hour (3600s)
+ORDER BY t1_time;
