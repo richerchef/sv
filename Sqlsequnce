@@ -258,3 +258,57 @@ WHERE b1.c1 = 1 -- Channel 1 is active in bucket 1
   AND b3.c3 = 1 -- Channel 3 is active in an even later bucket
   AND b4.c4 = 1 -- Channel 4 is active in the final bucket
   AND (b4.bucket_time - b1.bucket_time) <= 3600; -- All within 1 hour
+
+
+WITH CombinedStates AS (
+    -- Step 1: Combine channels into a single string representation
+    SELECT 
+        Dateid,
+        timeid,
+        CONCAT(
+            CAST(Channel_1 AS VARCHAR),
+            CAST(Channel_2 AS VARCHAR),
+            CAST(Channel_3 AS VARCHAR),
+            CAST(Channel_4 AS VARCHAR)
+        ) AS all_test
+    FROM your_table_name
+    -- Keep only rows where at least one test is actually running
+    WHERE Channel_1 = 1 OR Channel_2 = 1 OR Channel_3 = 1 OR Channel_4 = 1
+),
+
+DeduplicatedStates AS (
+    -- Step 2: Look at the PREVIOUS row's string.
+    -- If it's identical, we know it's a repeat/flicker and can filter it out.
+    SELECT 
+        Dateid,
+        timeid,
+        all_test,
+        LAG(all_test, 1) OVER (ORDER BY Dateid, timeid) AS prev_test
+    FROM CombinedStates
+),
+
+CleanSequence AS (
+    -- Step 3: Grab only the first instance of a state change, 
+    -- then look ahead at the next 3 unique states.
+    SELECT 
+        Dateid AS start_date,
+        timeid AS start_time,
+        all_test AS state_1,
+        LEAD(all_test, 1) OVER (ORDER BY Dateid, timeid) AS state_2,
+        LEAD(all_test, 2) OVER (ORDER BY Dateid, timeid) AS state_3,
+        LEAD(all_test, 3) OVER (ORDER BY Dateid, timeid) AS state_4
+    FROM DeduplicatedStates
+    WHERE prev_test IS NULL OR all_test != prev_test
+)
+
+-- Step 4: Pull the instances where the exact sequence occurs
+SELECT 
+    start_date,
+    start_time,
+    '1-2-3-4' AS sequence_detected
+FROM CleanSequence
+WHERE state_1 = '1000'
+  AND state_2 = '0100'
+  AND state_3 = '0010'
+  AND state_4 = '0001'
+ORDER BY start_date, start_time;
