@@ -130,3 +130,131 @@ WHERE Channel_1 = 1                -- Start with Channel 1 turning ON
   AND t4_time > t3_time            -- Channel 4 happens after Channel 3
   AND (t4_time - t1_time) <= 3600  -- The entire sequence completes within 1 hour (3600s)
 ORDER BY t1_time;
+
+
+WITH RawHits AS (
+    -- Step 1: Rely entirely on native columns to use your table indexes
+    SELECT 
+        Dateid,
+        timeid,
+        Channel_1, Channel_2, Channel_3, Channel_4,
+        -- Identify if a row is near the end of the day (11:00 PM = 79200 seconds)
+        CASE WHEN timeid >= 79200 THEN 1 ELSE 0 END AS is_late_night
+    FROM your_table_name
+    WHERE Channel_1 = 1 OR Channel_2 = 1 OR Channel_3 = 1 OR Channel_4 = 1
+),
+
+LookAhead AS (
+    -- Step 2: Look ahead using pure indexes. 
+    -- We bound the search to the next 50 rows to keep it lightning fast.
+    SELECT 
+        Dateid AS t1_date,
+        timeid AS t1_time,
+        Channel_1,
+        is_late_night,
+        
+        -- Find the next times channels 2, 3, and 4 turn on within the same day
+        MIN(CASE WHEN Channel_2 = 1 THEN timeid END) OVER (
+            PARTITION BY Dateid ORDER BY timeid ROWS BETWEEN 1 FOLLOWING AND 50 FOLLOWING
+        ) AS t2_time,
+        
+        MIN(CASE WHEN Channel_3 = 1 THEN timeid END) OVER (
+            PARTITION BY Dateid ORDER BY timeid ROWS BETWEEN 1 FOLLOWING AND 50 FOLLOWING
+        ) AS t3_time,
+        
+        MIN(CASE WHEN Channel_4 = 1 THEN timeid END) OVER (
+            PARTITION BY Dateid ORDER BY timeid ROWS BETWEEN 1 FOLLOWING AND 50 FOLLOWING
+        ) AS t4_time,
+        
+        -- Special Cross-Day Lookahead: If it's late night, look at the next chronological rows WITHOUT partition
+        MIN(CASE WHEN Channel_2 = 1 THEN timeid END) OVER (
+            ORDER BY Dateid, timeid ROWS BETWEEN 1 FOLLOWING AND 50 FOLLOWING
+        ) AS cross_t2_time,
+        MIN(CASE WHEN Channel_3 = 1 THEN timeid END) OVER (
+            ORDER BY Dateid, timeid ROWS BETWEEN 1 FOLLOWING AND 50 FOLLOWING
+        ) AS cross_t3_time,
+        MIN(CASE WHEN Channel_4 = 1 THEN timeid END) OVER (
+            ORDER BY Dateid, timeid ROWS BETWEEN 1 FOLLOWING AND 50 FOLLOWING
+        ) AS cross_t4_time,
+        
+        -- Track the Dateid of the 4th step to see if it crossed into tomorrow
+        LEAD(Dateid, 3) OVER (ORDER BY Dateid, timeid) AS t4_date
+    FROM RawHits
+)
+
+-- Step 3: Combine standard results and late-night crossover results
+SELECT 
+    t1_date AS start_date,
+    t1_time AS start_time,
+    '1-2-3-4' AS sequence,
+    CASE 
+        WHEN is_late_night = 0 THEN (t4_time - t1_time)
+        ELSE (t4_time + 86400) - t1_time -- Adds 24 hours in seconds if it crossed midnight
+    END AS duration_seconds
+FROM LookAhead
+WHERE Channel_1 = 1
+  AND (
+    -- Scenario A: Standard same-day sequence
+    (is_late_night = 0 
+     AND t2_time > t1_time 
+     AND t3_time > t2_time 
+     AND t4_time > t3_time 
+     AND (t4_time - t1_time) <= 3600)
+    OR
+    -- Scenario B: Midnight crossover sequence
+    (is_late_night = 1 
+     AND cross_t2_time IS NOT NULL 
+     AND cross_t3_time IS NOT NULL 
+     AND cross_t4_time IS NOT NULL
+     -- Ensures the 4th step happened either today or tomorrow
+     AND (t4_date = t1_date OR t4_date > t1_date) 
+     -- Logic to ensure sequence within 1 hour across midnight
+     AND ((cross_t4_time + CASE WHEN t4_date > t1_date THEN 86400 ELSE 0 END) - t1_time) <= 3600)
+  )
+ORDER BY t1_date, t1_time;
+
+or try average mean method?..
+
+
+
+WITH CompressedBuckets AS (
+    -- Step 1: Compress billions of rows into 5-minute intervals
+    -- 5 minutes = 300 seconds. Dividing timeid by 300 groups rows together.
+    SELECT 
+        Dateid,
+        (timeid / 300) * 300 AS bucket_time, 
+        AVG(CAST(Channel_1 AS FLOAT)) AS chan1_activity,
+        AVG(CAST(Channel_2 AS FLOAT)) AS chan2_activity,
+        AVG(CAST(Channel_3 AS FLOAT)) AS chan3_activity,
+        AVG(CAST(Channel_4 AS FLOAT)) AS chan4_activity
+    FROM your_table_name
+    WHERE Channel_1 = 1 OR Channel_2 = 1 OR Channel_3 = 1 OR Channel_4 = 1
+    GROUP BY Dateid, (timeid / 300) * 300
+),
+
+ActiveBuckets AS (
+    -- Step 2: Filter for buckets where a channel was actually active (mean > 0)
+    SELECT 
+        Dateid,
+        bucket_time,
+        CASE WHEN chan1_activity > 0 THEN 1 ELSE 0 END AS c1,
+        CASE WHEN chan2_activity > 0 THEN 1 ELSE 0 END AS c2,
+        CASE WHEN chan3_activity > 0 THEN 1 ELSE 0 END AS c3,
+        CASE WHEN chan4_activity > 0 THEN 1 ELSE 0 END AS c4
+    FROM CompressedBuckets
+)
+
+-- Step 3: Find the sequence across the compressed buckets
+SELECT 
+    b1.Dateid AS start_date,
+    b1.bucket_time AS start_time_bucket,
+    '1-2-3-4' AS sequence
+FROM ActiveBuckets b1
+JOIN ActiveBuckets b2 ON b1.Dateid = b2.Dateid AND b2.bucket_time > b1.bucket_time
+JOIN ActiveBuckets b3 ON b1.Dateid = b3.Dateid AND b3.bucket_time > b2.bucket_time
+JOIN ActiveBuckets b4 ON b1.Dateid = b4.Dateid AND b4.bucket_time > b3.bucket_time
+WHERE b1.c1 = 1 -- Channel 1 is active in bucket 1
+  AND b2.c2 = 1 -- Channel 2 is active in a later bucket
+  AND b3.c3 = 1 -- Channel 3 is active in an even later bucket
+  AND b4.c4 = 1 -- Channel 4 is active in the final bucket
+  AND (b4.bucket_time - b1.bucket_time) <= 3600; -- All within 1 hour
