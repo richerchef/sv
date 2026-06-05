@@ -9,6 +9,151 @@ from datetime import datetime
 csv_filename = 'your_devops_file.csv' 
 target_year = 2026  
 
+# Define individual area targets
+area_targets = {
+    'Area A': 200,
+    'Area B': 300,
+    'Area C': 100
+}
+
+df = pd.read_csv(csv_filename)
+closed_date_col = 'Closed Date'
+created_date_col = 'Date Created'  # Update if column is named differently
+area_col = 'Area'
+
+# Parse both columns using your exact timestamp structure
+date_format = '%d/%m/%Y %H:%M:%S'
+df[created_date_col] = pd.to_datetime(df[created_date_col], format=date_format, errors='coerce')
+df[closed_date_col] = pd.to_datetime(df[closed_date_col], format=date_format, errors='coerce')
+
+# Filter for items originating in the target year
+df = df[df[created_date_col].dt.year == target_year]
+
+# Safely establish the current calendar month cutoff threshold
+if not df.empty and pd.notnull(df[created_date_col].max()):
+    last_actual_month = df[created_date_col].max().month
+else:
+    last_actual_month = datetime.now().month
+last_actual_month = max(1, min(12, last_actual_month))
+
+# ==========================================
+# 2. Data Transformation & Backlog Counting
+# ==========================================
+all_months = pd.period_range(start=f'{target_year}-01', end=f'{target_year}-12', freq='M')
+df['Month Closed'] = df[closed_date_col].dt.to_period('M')
+
+# Track cumulative historical closed items by area
+closed_monthly = df.groupby([area_col, 'Month Closed']).size().unstack(fill_value=0).reindex(columns=all_months, fill_value=0)
+closed_monthly.loc['Grand Total'] = closed_monthly.sum()
+
+# CORE FILTER: If an item has no closed date, it is classified as 'Still Open'
+open_backlog_counts = df[df[closed_date_col].isna()].groupby(area_col).size()
+open_backlog_counts['Grand Total'] = open_backlog_counts.sum()
+
+# Compile master targets registry
+targets_registry = area_targets.copy()
+targets_registry['Grand Total'] = sum(area_targets.values())
+
+# Layout controls
+plot_order = ['Grand Total'] + list(area_targets.keys())
+single_letters = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+x_indexes = np.arange(12)
+
+# ==========================================
+# 3. Generating the Dashboards
+# ==========================================
+fig, axes = plt.subplots(len(plot_order), 1, figsize=(11, 4 * len(plot_order)), sharex=False, gridspec_kw={'hspace': 0.55})
+if len(plot_order) == 1:
+    axes = [axes]
+
+for i, area in enumerate(plot_order):
+    ax = axes[i]
+    annual_target = targets_registry[area]
+    target_line = np.linspace(0, annual_target, 13)[1:]
+    
+    # Extract historical values and set up run-rate loops
+    hist_closed_vals = closed_monthly.loc[area].values
+    closed_cum = np.zeros(12)
+    running_closed = 0
+    
+    # 1. Populate Actual Closures to date
+    for m in range(last_actual_month):
+        running_closed += hist_closed_vals[m]
+        closed_cum[m] = running_closed
+        
+    # 2. Project Run Rate for remaining months
+    run_rate = running_closed / max(last_actual_month, 1)
+    for m in range(last_actual_month, 12):
+        running_closed += run_rate
+        closed_cum[m] = running_closed
+        
+    # 3. Create "What-If" Vector by stacking open items onto our current progress
+    current_open_pool = open_backlog_counts.get(area, 0)
+    what_if_cum = closed_cum.copy()
+    # Apply the open ticket volume as an immediate boost starting from the cutoff onwards
+    what_if_cum[last_actual_month-1:] += current_open_pool
+    
+    # Calculate target percentages
+    current_closed_snapshot = closed_cum[last_actual_month-1]
+    pct_now = round((current_closed_snapshot / annual_target) * 100) if annual_target > 0 else 0
+    pct_projected = round((closed_cum[-1] / annual_target) * 100) if annual_target > 0 else 0
+    
+    # Title aesthetics based on variance
+    variance = round(closed_cum[-1] - annual_target)
+    status_str = f"ahead by {variance}" if variance >= 0 else f"behind by {abs(variance)}"
+    title_color = '#1e4620' if variance >= 0 else '#8b0000'
+    
+    # --- Plotting Visual Lines ---
+    # Linear Target Line
+    ax.plot(x_indexes, target_line, label='Expected Target Path', color='darkgray', linestyle='--')
+    
+    # Solid Actual Closures Track
+    ax.plot(x_indexes[:last_actual_month], closed_cum[:last_actual_month], 
+            color='royalblue', linewidth=2.5, marker='o', 
+            label=f'Actual Closures ({pct_now}% of target achieved)')
+    
+    # Dotted Baseline Projection Track
+    ax.plot(x_indexes[last_actual_month-1:], closed_cum[last_actual_month-1:], 
+            color='royalblue', linewidth=2.5, linestyle=':', alpha=0.5, 
+            marker='o', markerfacecolor='white', 
+            label=f'Projected Baseline Trend ({pct_projected}% of target)')
+    
+    # Faint Dotted Amber "What-If Open Backlog is Cleared" Track
+    ax.plot(x_indexes[last_actual_month-1:], what_if_cum[last_actual_month-1:], 
+            color='#d97706', linewidth=2, linestyle='--', alpha=0.6, 
+            marker='s', markerfacecolor='white', 
+            label=f'What-If: Resolve Current Open Items (+{current_open_pool} items)')
+    
+    # Historical Progress Shading
+    ax.fill_between(x_indexes[:last_actual_month], closed_cum[:last_actual_month], target_line[:last_actual_month],
+                    where=(closed_cum[:last_actual_month] >= target_line[:last_actual_month]), interpolate=True, color='green', alpha=0.1)
+    ax.fill_between(x_indexes[:last_actual_month], closed_cum[:last_actual_month], target_line[:last_actual_month],
+                    where=(closed_cum[:last_actual_month] < target_line[:last_actual_month]), interpolate=True, color='red', alpha=0.1)
+    
+    # Finalize Subplot Details
+    ax.set_title(f"{area} — Projected to be {status_str} by year-end (Target: {annual_target})", fontsize=12, fontweight='bold', color=title_color)
+    ax.set_ylabel('Total Items')
+    ax.set_xticks(x_indexes)
+    ax.set_xticklabels(single_letters)
+    ax.grid(True, linestyle=':', alpha=0.5)
+    ax.legend(loc='upper left', fontsize=9)
+
+axes[-1].set_xlabel('Month')
+fig.savefig('burnup_with_open_potential.png', bbox_inches='tight')
+print("Traditional Burnup chart with 'What-If' Backlog modeling created and saved successfully.")
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+# ==========================================
+# 1. Configuration & Data Loading
+# ==========================================
+csv_filename = 'your_devops_file.csv' 
+target_year = 2026  
+
 targets = {
     'Area A': 200,
     'Area B': 300,
