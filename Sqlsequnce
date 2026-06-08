@@ -1,3 +1,16 @@
+SELECT *
+FROM your_table
+WHERE 
+    -- Scenario 1: May 11th, from 23:00 (82800 seconds) to the end of the day
+    (Dateid = 20230511 AND Timeid >= 82800)
+    OR
+    -- Scenario 2: Any full days in between (if you expand the range later)
+    (Dateid > 20230511 AND Dateid < 20230512)
+    OR
+    -- Scenario 3: May 12th, from the start of the day up to 01:00 (3600 seconds)
+    (Dateid = 20230512 AND Timeid <= 3600);
+
+
 I'mWITH FastPreparedData AS (
     SELECT 
         Dateid,
