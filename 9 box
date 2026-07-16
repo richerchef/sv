@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>People Meeting Review & Talent Grid</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success-bg: #f0fdf4;
+            --success-text: #166534;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            color: var(--primary);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1.25rem;
+            color: var(--text-main);
+            border-left: 4px solid var(--primary);
+            padding-left: 0.5rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            color: var(--text-main);
+        }
+
+        input, select, textarea {
+            padding: 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            background-color: #fff;
+            color: var(--text-main);
+            width: 100%;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        /* 9-Box Interface Style */
+        .nine-box-picker {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 1rem;
+        }
+
+        .nine-box-cell {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: #f1f5f9;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .nine-box-cell small {
+            display: block;
+            font-weight: normal;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Colors for the 9 Box quadrants */
+        .cell-high-high { border-left: 5px solid #10b981; } /* Future Leader */
+        .cell-high-med  { border-left: 5px solid #34d399; } /* Growth Employee / High Impact */
+        .cell-high-low  { border-left: 5px solid #fbbf24; } /* Enigma */
+        .cell-med-high  { border-left: 5px solid #34d399; } /* High Impact */
+        .cell-med-med   { border-left: 5px solid #fef08a; } /* Core Employee */
+        .cell-med-low   { border-left: 5px solid #f97316; } /* Dilemma */
+        .cell-low-high  { border-left: 5px solid #fbbf24; } /* Trusted Professional */
+        .cell-low-med   { border-left: 5px solid #f97316; } /* Effective */
+        .cell-low-low   { border-left: 5px solid #ef4444; } /* Underperformer */
+
+        .nine-box-cell.selected {
+            background-color: #2563eb !important;
+            color: white !important;
+            border: 2px solid #1d4ed8;
+            transform: scale(1.02);
+        }
+        .nine-box-cell.selected small {
+            color: #bfdbfe;
+        }
+
+        /* Skills table formatting */
+        .skills-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+        }
+
+        .skills-table th, .skills-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .skills-table th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Buttons & Actions */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.65rem 1.25rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            flex-grow: 2;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .nine-box-picker {
+                grid-template-columns: 1fr;
+            }
+            .nine-box-cell {
+                min-height: auto;
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1>People Meeting Review Panel</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Standalone performance & talent assessment workspace</p>
+        </div>
+        <div class="btn-group" style="margin-top: 0;">
+            <div class="file-input-wrapper">
+                <button class="btn btn-secondary">Upload Saved Draft</button>
+                <input type="file" id="importJson" accept=".json" onchange="importData(this)" />
+            </div>
+            <button class="btn btn-secondary" onclick="exportData()">Download JSON</button>
+        </div>
+    </header>
+
+    <form id="reviewForm" onsubmit="event.preventDefault();">
+        <!-- Section 1: Demographics -->
+        <div class="card">
+            <h2>1. Administrative Details</h2>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="employeeName">Employee Name</label>
+                    <input type="text" id="employeeName" placeholder="e.g., Jane Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="jobTitle">Job Title</label>
+                    <input type="text" id="jobTitle" placeholder="e.g., Senior Systems Analyst" required>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="grade">Grade / Level</label>
+                    <input type="text" id="grade" placeholder="e.g., L5, Mid-Senior">
+                </div>
+                <div class="form-group">
+                    <label for="timeInPos">Time in Position</label>
+                    <input type="text" id="timeInPos" placeholder="e.g., 18 months">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="reviewDate">Review Date</label>
+                    <input type="date" id="reviewDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="managerName">Reviewing Manager</label>
+                    <input type="text" id="managerName" placeholder="e.g., Sarah Smith" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="attendance">Additional People In Attendance</label>
+                <input type="text" id="attendance" placeholder="e.g., HR Business Partner, Department Head">
+            </div>
+        </div>
+
+        <!-- Section 2: 9 Box Performance Grid -->
+        <div class="card">
+            <h2>2. Nine-Box Talent Placement</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                Select the quadrant that matches the employee's intersection of <strong>Performance</strong> (horizontal) and <strong>Potential</strong> (vertical).
+            </p>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="potential">Assess Potential</label>
+                    <select id="potential" onchange="syncNineBoxSelectors()">
+                        <option value="Low">Low (Developing)</option>
+                        <option value="Medium" selected>Medium (Consistent)</option>
+                        <option value="High">High (Exceptional)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="performance">Assess Performance</label>
+                    <select id="performance" onchange="syncNineBoxSelectors()">
+                        <option value="Low">Low (Underperforming)</option>
+                        <option value="Medium" selected>Medium (Effective)</option>
+                        <option value="High">High (Exceeding)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Visual 3x3 Grid Representing the 9 Box Matrix -->
+            <div class="nine-box-picker" id="nineBoxVisual">
+                <!-- Row 1: High Potential -->
+                <div class="nine-box-cell cell-high-low" data-pot="High" data-perf="Low" onclick="selectCell('High','Low')">
+                    Enigma
+                    <small>High Pot / Low Perf</small>
+                </div>
+                <div class="nine-box-cell cell-high-med" data-pot="High" data-perf="Medium" onclick="selectCell('High','Medium')">
+                    Growth Employee
+                    <small>High Pot / Med Perf</small>
+                </div>
+                <div class="nine-box-cell cell-high-high" data-pot="High" data-perf="High" onclick="selectCell('High','High')">
+                    Future Leader
+                    <small>High Pot / High Perf</small>
+                </div>
+
+                <!-- Row 2: Medium Potential -->
+                <div class="nine-box-cell cell-med-low" data-pot="Medium" data-perf="Low" onclick="selectCell('Medium','Low')">
+                    Dilemma
+                    <small>Med Pot / Low Perf</small>
+                </div>
+                <div class="nine-box-cell cell-med-med" data-pot="Medium" data-perf="Medium" onclick="selectCell('Medium','Medium')">
+                    Core Employee
+                    <small>Med Pot / Med Perf</small>
+                </div>
+                <div class="nine-box-cell cell-med-high" data-pot="Medium" data-perf="High" onclick="selectCell('Medium','High')">
+                    High Impact Performer
+                    <small>Med Pot / High Perf</small>
+                </div>
+
+                <!-- Row 3: Low Potential -->
+                <div class="nine-box-cell cell-low-low" data-pot="Low" data-perf="Low" onclick="selectCell('Low','Low')">
+                    Underperformer
+                    <small>Low Pot / Low Perf</small>
+                </div>
+                <div class="nine-box-cell cell-low-med" data-pot="Low" data-perf="Medium" onclick="selectCell('Low','Medium')">
+                    Effective
+                    <small>Low Pot / Med Perf</small>
+                </div>
+                <div class="nine-box-cell cell-low-high" data-pot="Low" data-perf="High" onclick="selectCell('Low','High')">
+                    Trusted Professional
+                    <small>Low Pot / High Perf</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Core KPI & Skills Assessment -->
+        <div class="card">
+            <h2>3. KPI Skills Assessment</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                Rate performance across basic competencies required for the job role.
+            </p>
+            <table class="skills-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Core Skill / Domain</th>
+                        <th>Competency Grade</th>
+                        <th>Domain Specific Comments</th>
+                    </tr>
+                </thead>
+                <tbody id="skillsTableBody">
+                    <tr>
+                        <td><strong>Job Technical Execution</strong></td>
+                        <td>
+                            <select class="skill-grade" data-skill="Technical Execution">
+                                <option value="Needs Improvement">Needs Improvement</option>
+                                <option value="Competent" selected>Competent</option>
+                                <option value="Expert">Expert / Role Model</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="skill-comment" data-skill="Technical Execution" placeholder="Observation..."></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Communication & Collaboration</strong></td>
+                        <td>
+                            <select class="skill-grade" data-skill="Communication">
+                                <option value="Needs Improvement">Needs Improvement</option>
+                                <option value="Competent" selected>Competent</option>
+                                <option value="Expert">Expert / Role Model</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="skill-comment" data-skill="Communication" placeholder="Observation..."></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Problem Solving & Analytical Thinking</strong></td>
+                        <td>
+                            <select class="skill-grade" data-skill="Problem Solving">
+                                <option value="Needs Improvement">Needs Improvement</option>
+                                <option value="Competent" selected>Competent</option>
+                                <option value="Expert">Expert / Role Model</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="skill-comment" data-skill="Problem Solving" placeholder="Observation..."></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Leadership & Initiative</strong></td>
+                        <td>
+                            <select class="skill-grade" data-skill="Leadership">
+                                <option value="Needs Improvement" selected>Needs Improvement</option>
+                                <option value="Competent">Competent</option>
+                                <option value="Expert">Expert / Role Model</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="skill-comment" data-skill="Leadership" placeholder="Observation..."></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 4: Qualitative Review Notes -->
+        <div class="card">
+            <h2>4. Comments, Development & Next Steps</h2>
+            <div class="form-group">
+                <label for="performanceComments">Detailed Assessment Performance Comments</label>
+                <textarea id="performanceComments" rows="4" placeholder="Detail recent successes, performance milestones, and strengths..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="suggestions">Development Goals & Future Path Suggestions</label>
+                <textarea id="suggestions" rows="4" placeholder="Identify support structures, training targets, or future scope shifts..."></textarea>
+            </div>
+        </div>
+
+        <div class="btn-group" style="margin-bottom: 3rem;">
+            <button class="btn btn-primary" type="button" onclick="generateReport()">Generate & Download Report</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Initialize current date on page load
+    document.getElementById('reviewDate').valueAsDate = new Date();
+
+    // Map labels for display outputs inside the final PDF/HTML page
+    const gridMap = {
+        'High-Low': { title: 'Enigma', desc: 'High Potential / Low Performance' },
+        'High-Medium': { title: 'Growth Employee', desc: 'High Potential / Medium Performance' },
+        'High-High': { title: 'Future Leader', desc: 'High Potential / High Performance' },
+        'Medium-Low': { title: 'Dilemma', desc: 'Medium Potential / Low Performance' },
+        'Medium-Medium': { title: 'Core Employee', desc: 'Medium Potential / Medium Performance' },
+        'Medium-High': { title: 'High Impact Performer', desc: 'Medium Potential / High Performance' },
+        'Low-Low': { title: 'Underperformer', desc: 'Low Potential / Low Performance' },
+        'Low-Medium': { title: 'Effective', desc: 'Low Potential / Medium Performance' },
+        'Low-High': { title: 'Trusted Professional', desc: 'Low Potential / High Performance' }
+    };
+
+    function syncNineBoxSelectors() {
+        const pot = document.getElementById('potential').value;
+        const perf = document.getElementById('performance').value;
+        
+        // Remove select states from all grid visual cards
+        document.querySelectorAll('.nine-box-cell').forEach(cell => {
+            cell.classList.remove('selected');
+        });
+
+        // Add selected class highlight onto correct targeted node
+        const activeCell = document.querySelector(`.nine-box-cell[data-pot="${pot}"][data-perf="${perf}"]`);
+        if (activeCell) {
+            activeCell.classList.add('selected');
+        }
+    }
+
+    function selectCell(potential, performance) {
+        document.getElementById('potential').value = potential;
+        document.getElementById('performance').value = performance;
+        syncNineBoxSelectors();
+    }
+
+    // Initialize 9 Box highlighted state on load
+    syncNineBoxSelectors();
+
+    // Export raw form data as JSON state
+    function exportData() {
+        const skills = [];
+        document.querySelectorAll('#skillsTableBody tr').forEach(row => {
+    
