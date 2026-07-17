@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script type="module" src="/@vite/client"></script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Standalone SCADA HMI Simulator & Designer</title>
+  <!-- Tailwind CSS CDN for elegant styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f17;
+      color: #cbd5e1;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Simple scrollbar theme */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+<script src="/_aistudio-iframe.js?v=1ee22f18"></script></head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <!-- ==================== HEADER PANEL ==================== -->
+  <header class="bg-[#111622] border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50 shadow-lg">
+    <div class="flex items-center gap-3">
+      <div class="h-8 w-8 rounded bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-sm shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+        SC
+      </div>
+      <div>
+        <h1 class="text-xs font-bold text-white tracking-wider uppercase font-mono leading-none">
+          Industrial SCADA | Terminal
+        </h1>
+        <span class="text-[9px] font-mono font-bold text-emerald-400 tracking-widest">
+          STANDALONE OFFLINE SUITE v3.0
+        </span>
+      </div>
+    </div>
+
+    <!-- Central Navigation and Controls -->
+    <div class="flex items-center gap-4">
+      <!-- Mode Toggle Switch -->
+      <div class="bg-slate-950 p-1 rounded-md border border-slate-800 flex">
+        <button id="btn-monitor-mode" onclick="setViewMode('monitor')" class="px-4 py-1.5 rounded text-xs font-bold transition-all bg-emerald-600 text-white shadow">
+          HMI Monitor
+        </button>
+        <button id="btn-designer-mode" onclick="setViewMode('designer')" class="px-4 py-1.5 rounded text-xs font-bold transition-all text-slate-400 hover:text-white">
+          HMI Designer
+        </button>
+      </div>
+
+      <!-- Layout Picker (Monitor Only) -->
+      <div id="layout-picker-container" class="relative">
+        <select id="layout-selector" onchange="changeActiveLayout(this.value)" class="bg-[#1e293b] border border-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-bold outline-none focus:border-emerald-500 transition-colors cursor-pointer">
+          <!-- Options injected dynamically -->
+        </select>
+      </div>
+
+      <!-- JSON Telemetry File Loader -->
+      <div id="json-loader-container" class="flex items-center gap-2">
+        <button onclick="document.getElementById('file-loader').click()" class="bg-[#1e293b] hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5 transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+          Load JSON
+        </button>
+        <input type="file" id="file-loader" accept=".json" onchange="handleJsonTelemetryUpload(event)" class="hidden">
+      </div>
+    </div>
+
+    <!-- Active UTC Timestamp -->
+    <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded text-xs font-mono font-medium text-slate-300 flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span id="utc-clock">00:00:00 UTC</span>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT AREA ==================== -->
+  <main class="flex-grow w-full max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-1 xl:grid-cols-4 gap-6">
+
+    <!-- LEFT COLUMN: CONTEXT METADATA & DESIGNER PALETTE -->
+    <div class="xl:col-span-1 space-y-5">
+      <!-- Layout Metadata Details -->
+      <div id="meta-panel" class="bg-[#111622] border border-slate-800/80 rounded-xl p-5 shadow-lg">
+        <span class="font-mono text-[9px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-800 px-2.5 py-1 rounded uppercase tracking-wider">
+          Node Controller Schema
+        </span>
+        <h2 id="meta-title" class="text-base font-bold text-white tracking-tight mt-3">
+          Loading Active Schematic...
+        </h2>
+        <p id="meta-desc" class="text-slate-400 text-xs leading-relaxed mt-2">
+          HMI synoptic layouts update automatically to stream physical register registers, pipe pressure lines, and alarm thresholds.
+        </p>
+        <!-- Compact Alarms Diagnostics Container (Contained directly inside the SCADA HMI context) -->
+        <div class="mt-4 pt-4 border-t border-slate-800/80 space-y-2">
+          <span class="text-[10px] font-mono font-bold text-slate-500 block uppercase tracking-wider">Active Loop Metrics</span>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-slate-950 border border-slate-900 rounded p-2.5">
+              <span class="text-[8px] font-mono text-slate-500 block uppercase">Signal Tags</span>
+              <span id="stat-tags-count" class="font-mono font-bold text-sm text-slate-300">0</span>
+            </div>
+            <div class="bg-slate-950 border border-slate-900 rounded p-2.5">
+              <span class="text-[8px] font-mono text-slate-500 block uppercase">Alarms Active</span>
+              <span id="stat-alarms-active" class="font-mono font-bold text-sm text-emerald-400">0 ACT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DESIGNER CONTROLS TOOLBOX (Hidden by default in Monitor mode) -->
+      <div id="designer-tools-panel" class="bg-[#111622] border border-slate-800/80 rounded-xl p-5 shadow-lg space-y-4 hidden animate-fade-in">
+        <h3 class="font-mono text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded bg-amber-500"></span> HMI Builder Palette
+        </h3>
+
+        <!-- Tool Selection Button Grid -->
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="setDesignerTool('select')" id="tool-select" class="flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-amber-600 border border-amber-500 text-white shadow-md transition-all">
+            Cursor Select
+          </button>
+          <button onclick="setDesignerTool('tank')" id="tool-tank" class="flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-[#1e293b] border border-slate-700 hover:bg-slate-700 text-slate-300 transition-all">
+            + Place Tank
+          </button>
+          <button onclick="setDesignerTool('pump')" id="tool-pump" class="flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-[#1e293b] border border-slate-700 hover:bg-slate-700 text-slate-300 transition-all">
+            + Place Pump
+          </button>
+          <button onclick="setDesignerTool('valve')" id="tool-valve" class="flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-[#1e293b] border border-slate-700 hover:bg-slate-700 text-slate-300 transition-all">
+            + Place Valve
+          </button>
+          <button onclick="setDesignerTool('scale')" id="tool-scale" class="flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-[#1e293b] border border-slate-700 hover:bg-slate-700 text-slate-300 transition-all">
+            + Place Scale
+          </button>
+          <button onclick="setDesignerTool('pipe')" id="tool-pipe" class="flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-[#1e293b] border border-slate-700 hover:bg-slate-700 text-slate-300 transition-all">
+            + Draw Pipe
+          </button>
+        </div>
+
+        <!-- Pipe Drawing Feedback Block -->
+        <div id="pipe-feedback" class="p-3 bg-sky-950/30 border border-sky-800/50 rounded-lg text-xs hidden">
+          <p class="text-sky-400 font-medium mb-2 leading-normal">
+            <strong>Pipe Drawing Mode:</strong> Left-click multiple points on the blueprint map to draft the pipe segment. Press Finish when done.
+          </p>
+          <button onclick="finishDrawingPipe()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-mono text-[10px] py-1 px-2.5 rounded font-bold transition-all">
+            Finish Drawing Pipe (<span id="pipe-points-count">0</span> nodes)
+          </button>
+        </div>
+
+        <!-- Blueprint Upload & Scale Settings -->
+        <div class="space-y-3 pt-2">
+          <div>
+            <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Grid Dimension Bounds</label>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="number" id="designer-grid-w" value="1000" onchange="updateDesignerGridSize()" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-300 outline-none w-full">
+              <input type="number" id="designer-grid-h" value="600" onchange="updateDesignerGridSize()" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-300 outline-none w-full">
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Background Blueprint Layout</label>
+            <button onclick="document.getElementById('blueprint-loader').click()" class="w-full bg-[#1e293b] hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 transition-all">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z"/></svg>
+              Upload Schematic Image
+            </button>
+            <input type="file" id="blueprint-loader" accept="image/*" onchange="handleBlueprintUpload(event)" class="hidden">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN: INTERACTIVE SCADA SCHEMA CANVAS & TIMELINE -->
+    <div class="xl:col-span-2 flex flex-col justify-between space-y-4">
+
+      <!-- SCADA VIEWPORT CABINET -->
+      <div class="bg-[#111622] border border-slate-800/80 rounded-xl shadow-2xl p-4 flex flex-col relative min-h-[480px]">
+        <!-- Active alarm badge or drawing hint indicator banner inside viewport header -->
+        <div class="flex items-center justify-between border-b border-slate-800/60 pb-3 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" id="status-glow"></span>
+            <span id="viewport-subheading" class="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              HMI Process Synoptic Graphic
+            </span>
+          </div>
+          <span id="canvas-dim" class="font-mono text-[9px] text-slate-500">
+            Resolution: 1000x600
+          </span>
+        </div>
+
+        <!-- Interactive SVG Viewport -->
+        <div class="flex-grow flex items-center justify-center bg-slate-950 rounded-lg border border-slate-900 overflow-hidden relative">
+          <!-- Main Interactive SVG -->
+          <svg id="hmi-svg" viewBox="0 0 1000 600" onclick="handleCanvasInteraction(event)" class="w-full h-auto select-none bg-slate-950 max-h-[500px]">
+            <!-- Dynamic definitions -->
+            <defs>
+              <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <!-- Grid Background -->
+            <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+            <!-- SVG Image Blueprint background (for Designer layout drafting) -->
+            <image id="designer-bg-image" width="1000" height="600" opacity="0.35" style="display: none;"></image>
+            
+            <!-- Structural containers injected dynamically via JS renderers -->
+            <g id="pipes-group"></g>
+            <g id="tanks-group"></g>
+            <g id="valves-group"></g>
+            <g id="pumps-group"></g>
+            <g id="sensors-group"></g>
+          </svg>
+
+          <!-- Simple Hover Tooltip (Fully offline, absolutely positioned inside cabinet) -->
+          <div id="hmi-tooltip" class="absolute z-40 bg-[#161f30] border border-slate-700 text-slate-100 p-3 rounded-md shadow-2xl w-64 pointer-events-none text-xs opacity-0 transition-opacity duration-150">
+            <!-- Content built on hover -->
+          </div>
+        </div>
+      </div>
+
+      <!-- PLAYBACK CONTROLS (Monitor Mode) or EXPORTER (Designer Mode) -->
+      <div id="monitor-controls" class="bg-[#111622] border border-slate-800/80 rounded-xl p-4 shadow-lg flex items-center justify-between gap-4">
+        <!-- Playback Actions -->
+        <div class="flex items-center gap-1.5">
+          <button id="btn-play-pause" onclick="togglePlayback()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[10px] font-bold px-3 py-1.5 rounded transition-all">
+            PAUSE
+          </button>
+          <button onclick="stepFrame()" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300" title="Step Frame Forward">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25V18a.75.75 0 001.22.58l9.75-8.25a.75.75 0 000-1.16L4.22 1a.75.75 0 00-1.22.58v6.67m10.5 0V18a.75.75 0 001.22.58l9.75-8.25a.75.75 0 000-1.16L14.72 1a.75.75 0 00-1.22.58v6.67"/></svg>
+          </button>
+          <button onclick="resetPlayback()" class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300" title="Rewind to Frame 0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+          </button>
+        </div>
+
+        <!-- Scrubber and Timeline Progress indicator -->
+        <div class="flex-grow flex items-center gap-3">
+          <span id="frame-indicator" class="text-[9px] font-mono font-bold text-slate-500 whitespace-nowrap">
+            FRAME 1/60
+          </span>
+          <input type="range" id="playback-scrubber" min="0" max="59" value="0" oninput="scrubTimeline(this.value)" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 outline-none">
+          <span id="frame-timestamp" class="text-emerald-400 font-mono font-bold tabular-nums text-xs whitespace-nowrap">
+            00:00:00
+          </span>
+        </div>
+
+        <!-- Speed Factor Dropdown -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-[8px] font-mono font-bold text-slate-500 hidden sm:inline">SPEED</span>
+          <select id="speed-selector" onchange="changePlaybackSpeed(this.value)" class="bg-[#1e293b] border border-slate-700 text-slate-300 text-xs px-2 py-1 rounded font-mono outline-none cursor-pointer">
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="2">2.0x</option>
+            <option value="5">5.0x</option>
+            <option value="10">10.0x</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- DESIGN CODE EXPORTER BOX (Hidden by default in Monitor mode) -->
+      <div id="designer-code-box" class="bg-[#111622] border border-slate-800/80 rounded-xl p-5 shadow-lg space-y-3 hidden">
+        <div class="flex items-center justify-between">
+          <h4 class="font-mono text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded bg-sky-500 animate-pulse"></span> Exported layout JS Configuration block
+          </h4>
+          <button onclick="copyLayoutCode()" class="bg-[#1e293b] hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] font-mono py-1 px-2.5 rounded transition-all">
+            Copy Code Block
+          </button>
+        </div>
+        <textarea id="output-layout-json" readonly class="w-full bg-slate-950 border border-slate-900 rounded p-3 text-[10px] font-mono text-slate-400 h-32 resize-none leading-relaxed outline-none"></textarea>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: DETAILED ASSET INSPECTOR -->
+    <div class="xl:col-span-1">
+      <div class="bg-[#111622] border border-slate-800/80 rounded-xl p-5 shadow-lg min-h-[480px] flex flex-col justify-between">
+        <div>
+          <h3 class="font-mono text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-2 mb-4 flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded bg-emerald-500"></span> Asset Calibration Inspector
+          </h3>
+
+          <!-- Selection Empty State -->
+          <div id="inspector-empty" class="py-16 text-center space-y-2">
+            <svg class="w-8 h-8 text-slate-600 mx-auto opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>
+            <p class="font-mono text-xs text-slate-500">No Asset Selected</p>
+            <p class="text-[10px] text-slate-600 leading-normal max-w-[180px] mx-auto">
+              Select any highlighted active process asset on the SVG synoptic layout to inspect registers or configure.
+            </p>
+          </div>
+
+          <!-- Dynamic Calibration Fields (Shown only when asset is selected) -->
+          <div id="inspector-form" class="space-y-4 hidden">
+            <div class="p-2.5 bg-slate-950 border border-slate-900 rounded-lg">
+              <span id="inspector-asset-type" class="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest block">TANK</span>
+              <span id="inspector-asset-tag" class="font-mono text-xs font-bold text-slate-100">DRUM_LVL</span>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Friendly Display Label</label>
+                <input type="text" id="inspect-label" oninput="updateActiveAssetField('name', this.value)" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none w-full">
+              </div>
+
+              <!-- Digital Valve-specific orientation selector -->
+              <div id="inspect-valve-fields" class="hidden">
+                <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Actuator Orientation</label>
+                <select id="inspect-valve-orient" onchange="updateActiveAssetField('orientation', this.value)" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs px-2.5 py-1.5 rounded outline-none w-full">
+                  <option value="horizontal">Horizontal (Flat-bed)</option>
+                  <option value="vertical">Vertical (Upright)</option>
+                </select>
+              </div>
+
+              <!-- Pump-specific flow direction selector -->
+              <div id="inspect-pump-fields" class="hidden">
+                <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Impeller Arrow Direction</label>
+                <select id="inspect-pump-flow" onchange="updateActiveAssetField('flowDirection', this.value)" class="bg-slate-950 border border-slate-800 text-slate-300 text-xs px-2.5 py-1.5 rounded outline-none w-full">
+                  <option value="right">To the Right (East)</option>
+                  <option value="left">To the Left (West)</option>
+                  <option value="up">Going Up (North)</option>
+                  <option value="down">Going Down (South)</option>
+                </select>
+              </div>
+
+              <!-- Tank-specific limits settings -->
+              <div id="inspect-tank-fields" class="hidden grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Max Capacity</label>
+                  <input type="number" id="inspect-tank-cap" oninput="updateActiveAssetField('maxCapacity', Number(this.value))" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none w-full">
+                </div>
+                <div>
+                  <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Unit Weight</label>
+                  <input type="text" id="inspect-tank-unit" oninput="updateActiveAssetField('unit', this.value)" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none w-full">
+                </div>
+              </div>
+
+              <!-- Shared analogue scale parameters calibration -->
+              <div id="inspect-sensor-fields" class="border-t border-slate-800 pt-3 mt-3 space-y-3 hidden">
+                <span class="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Scale Calibration (analogue)</span>
+                
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Engineering Min</label>
+                    <input type="number" id="inspect-scale-min" oninput="updateActiveSensorField('scaleMin', Number(this.value))" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] text-slate-200 outline-none w-full">
+                  </div>
+                  <div>
+                    <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Engineering Max</label>
+                    <input type="number" id="inspect-scale-max" oninput="updateActiveSensorField('scaleMax', Number(this.value))" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] text-slate-200 outline-none w-full">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Warning Low</label>
+                    <input type="number" id="inspect-warn-low" oninput="updateActiveSensorThreshold('warningLow', Number(this.value))" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] text-slate-200 outline-none w-full">
+                  </div>
+                  <div>
+                    <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Warning High</label>
+                    <input type="number" id="inspect-warn-high" oninput="updateActiveSensorThreshold('warningHigh', Number(this.value))" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] text-slate-200 outline-none w-full">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Shared Asset Registry Description Details -->
+              <div>
+                <label class="text-[9px] font-bold uppercase text-slate-500 block mb-1">Tag Registry Metadata</label>
+                <textarea id="inspect-description" rows="2" oninput="updateActiveSensorField('description', this.value)" class="bg-slate-950 border border-slate-800 rounded p-2 text-[10px] text-slate-300 outline-none w-full resize-none leading-relaxed"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Decommission Element Action -->
+        <button id="btn-decommission" onclick="decommissionActiveAsset()" class="w-full bg-rose-950/40 hover:bg-rose-900 border border-rose-800 text-rose-200 font-bold py-2 px-3 rounded text-xs transition-all flex items-center justify-center gap-1.5 mt-4 hidden">
+          Decommission / Delete Asset
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==================== PLAYBACK / DESIGN STATS FOOTER ==================== -->
+  <footer class="bg-[#111622] border-t border-slate-800 py-3 px-6 h-12 flex items-center justify-between font-mono text-[10px] text-slate-500">
+    <div class="flex items-center gap-2">
+      <span class="text-slate-400 font-bold uppercase">System:</span>
+      <span class="bg-emerald-950/20 border border-emerald-900 text-emerald-400 px-2 py-0.5 rounded font-bold font-mono">
+        ONLINE
+      </span>
+      <span class="hidden md:inline text-slate-700">|</span>
+      <span class="hidden md:inline">Schema Key: <strong id="schema-key-footer" class="text-slate-400">water_filtration</strong></span>
+    </div>
+
+    <div>
+      <span>Designed with Pure SVG animations & Local Storage • 2026</span>
+    </div>
+  </footer>
+
+  <!-- ==================== SCADA HMI SIMULATION CODE ENGINE ==================== -->
+  <script>
+    // ==================== STATE MANAGEMENT ====================
+    const state = {
+      viewMode: 'monitor', // 'monitor' | 'designer'
+      activeLayoutId: 'water_filtration',
+      isPlaying: true,
+      playbackIndex: 0,
+      playbackSpeed: 1,
+      rotationAngle: 0,
+      timeseries: [],
+      layouts: [],
+      
+      // Designer state
+      designerTool: 'select', // 'select' | 'tank' | 'pump' | 'valve' | 'scale' | 'pipe'
+      selectedAsset: null, // { type: 'tank'|'valve'|'pump'|'scale'|'pipe', id: string }
+      currentPipePoints: [],
+      designerBlueprintUrl: '',
+      designerGridW: 1000,
+      designerGridH: 600
+    };
+
+    // ==================== SIMULATED TIMESERIES TELEMETRY GENERATOR ====================
+    function generateSimulatedTelemetry(type, size = 60) {
+      const data = [];
+      const now = Date.now();
+      for (let i = 0; i < size; i++) {
+        const timestamp = new Date(now + i * 2000).toLocaleTimeString();
+        const values = {};
+        const flags = {};
+
+        if (type === 'water_filtration') {
+          const inletActive = i % 20 < 14;
+          const washActive = i % 20 >= 14 && i % 20 < 18;
+          const rawLvl = Math.max(10, 85 - (i % 20) * 3 + (inletActive ? 1.5 : 0));
+          const clnLvl = Math.min(95, 20 + (i % 20) * 3.5 - (washActive ? 4 : 0));
+          const ph = 7.0 + Math.sin(i / 3) * 0.8 + (i === 25 ? 2.5 : 0);
+          const turb = 1.2 + Math.cos(i / 4) * 0.5 + (i >= 40 && i <= 45 ? 5.5 : 0);
+
+          values['RAW_LVL'] = Number(rawLvl.toFixed(1));
+          values['CLN_LVL'] = Number(clnLvl.toFixed(1));
+          values['PH_SENS'] = Number(ph.toFixed(2));
+          values['TURB_SENS'] = Number(turb.toFixed(2));
+          values['FLOW_SENS'] = inletActive ? Number((250 + Math.sin(i) * 15).toFixed(1)) : 0;
+          values['IN_PUMP'] = inletActive ? 1 : 0;
+          values['BW_PUMP'] = washActive ? 1 : 0;
+          values['FEED_VALVE'] = inletActive ? 1 : 0;
+          values['DRAIN_VALVE'] = washActive ? 1 : 0;
+
+          if (ph > 8.5) flags['PH_SENS'] = 'W';
+          if (ph > 9.2) flags['PH_SENS'] = 'B';
+          if (turb > 3.0) flags['TURB_SENS'] = 'W';
+          if (turb > 5.0) flags['TURB_SENS'] = 'B';
+          if (rawLvl < 20) flags['RAW_LVL'] = 'W';
+          if (clnLvl > 90) flags['CLN_LVL'] = 'W';
+
+        } else if (type === 'chemical_reactor') {
+          const agitatorActive = i >= 10 && i < 50 ? 1 : 0;
+          const heatValve = i < 25 ? 1 : 0;
+          const coolValve = i >= 35 && i < 50 ? 1 : 0;
+          
+          let temp = i < 25 ? 25 + i * 4.5 : i < 40 ? 137.5 + Math.sin(i) * 2 : i < 50 ? 137.5 - (i - 40) * 10 : Math.max(25, 37.5 - (i - 50) * 1.2);
+          let pressure = i < 25 ? 1.0 + (temp - 25) * 0.05 : i < 40 ? 6.6 + Math.cos(i) * 0.4 + (i === 30 ? 3.5 : 0) : i < 50 ? 6.6 - (i - 40) * 0.5 : 1.0;
+          let level = i < 15 ? 10 + i * 5.5 : i < 50 ? 92.5 + Math.sin(i / 2) * 0.5 : Math.max(10, 92.5 - (i - 50) * 8.2);
+
+          values['RX_LVL'] = Number(level.toFixed(1));
+          values['TEMP_SENS'] = Number(temp.toFixed(1));
+          values['PRES_SENS'] = Number(pressure.toFixed(2));
+          values['AGITATOR'] = agitatorActive;
+          values['HEAT_VLV'] = heatValve;
+          values['COOL_VLV'] = coolValve;
+
+          if (temp > 130) flags['TEMP_SENS'] = 'W';
+          if (temp > 145) flags['TEMP_SENS'] = 'B';
+          if (pressure > 6.0) flags['PRES_SENS'] = 'W';
+          if (pressure > 8.0) flags['PRES_SENS'] = 'B';
+
+        } else { // steam_boiler
+          const pumpActive = i % 15 < 7;
+          const steamValveOpen = i >= 10;
+          let boilerPrs = i < 10 ? 1.0 + i * 1.5 : 16.0 + Math.sin(i / 2) * 2.0 + (i === 35 ? 7.5 : 0);
+          let steamTemp = i < 10 ? 100 + i * 15 : 250 + Math.sin(i) * 5;
+          let drumLvl = pumpActive ? Math.min(85, 45 + (i % 15) * 5.0) : Math.max(30, 80 - ((i % 15) - 7) * 4.5);
+
+          values['DRUM_LVL'] = Number(drumLvl.toFixed(1));
+          values['BOILER_PRS'] = Number(boilerPrs.toFixed(2));
+          values['STEAM_TMP'] = Number(steamTemp.toFixed(1));
+          values['STEAM_FLW'] = steamValveOpen ? Number((boilerPrs * 12.5 + Math.cos(i) * 10).toFixed(1)) : 0;
+          values['FEED_PUMP'] = pumpActive ? 1 : 0;
+          values['STEAM_VLV'] = steamValveOpen ? 1 : 0;
+
+          if (boilerPrs > 18.0) flags['BOILER_PRS'] = 'W';
+          if (boilerPrs > 22.0) flags['BOILER_PRS'] = 'B';
+          if (steamTemp > 255) flags['STEAM_TMP'] = 'W';
+          if (drumLvl < 35 || drumLvl > 80) flags['DRUM_LVL'] = 'W';
+        }
+
+        data.push({ timestamp, values, flags });
+      }
+      return data;
+    }
+
+    // ==================== FACTORY HMI LAYOUT PRESETS ====================
+    const layoutPresets = [
+      {
+        id: 'water_filtration',
+        name: 'Water Filtration Plant (WFP-3000)',
+        description: 'System for municipal water filtering, tracking raw water supply, filtration flow, pH level, and turbidity thresholds.',
+        viewBox: '0 0 1000 600',
+        sensors: [
+          { id: 'RAW_LVL', name: 'Raw Water Tank Level', type: 'analogue', unit: '%', thresholds: { warningLow: 25, warningHigh: 85 }, scaleMin: 0, scaleMax: 100, description: 'Measures the liquid volume percentage in the raw water inlet reservoir.' },
+          { id: 'CLN_LVL', name: 'Filtered Water Tank Level', type: 'analogue', unit: '%', thresholds: { warningLow: 20, warningHigh: 90 }, scaleMin: 0, scaleMax: 100, description: 'Measures storage capacity in the clean effluent reservoir.' },
+          { id: 'PH_SENS', name: 'Effluent pH Sensor', type: 'analogue', unit: 'pH', thresholds: { warningLow: 6.5, warningHigh: 8.5 }, scaleMin: 0, scaleMax: 14, description: 'Monitors effluent acidity. Standard target range is 6.5 - 8.5 pH.' },
+          { id: 'TURB_SENS', name: 'Discharge Turbidity', type: 'analogue', unit: 'NTU', thresholds: { warningHigh: 3.0 }, scaleMin: 0, scaleMax: 10, description: 'Measures suspended particles (water cloudiness). Must be kept low for safe usage.' },
+          { id: 'FLOW_SENS', name: 'Inlet Flow Transmitter', type: 'analogue', unit: 'L/m', thresholds: { warningHigh: 350 }, scaleMin: 0, scaleMax: 500, description: 'Monitors current volumetric intake pump rate.' },
+          { id: 'IN_PUMP', name: 'Inlet Feed Pump 101', type: 'digital', description: 'Primary feed pump that transports raw source water.' },
+          { id: 'BW_PUMP', name: 'Backwash Pump 102', type: 'digital', description: 'Reverses flow to clear sand filter bed.' },
+          { id: 'FEED_VALVE', name: 'Main Feed Valve', type: 'digital', description: 'Solenoid regulating inlet flow.' },
+          { id: 'DRAIN_VALVE', name: 'Filter Drain Valve', type: 'digital', description: 'Directs sand filter rinse effluent to drain.' }
+        ],
+        pumps: [
+          { id: 'IN_PUMP', name: 'Inlet Feed Pump', controlSensorId: 'IN_PUMP', x: 320, y: 330, width: 60, height: 60, flowDirection: 'right' },
+          { id: 'BW_PUMP', name: 'Backwash Pump', controlSensorId: 'BW_PUMP', x: 520, y: 420, width: 60, height: 60, flowDirection: 'left' }
+        ],
+        valves: [
+          { id: 'FEED_VALVE', name: 'Feed Valve', controlSensorId: 'FEED_VALVE', x: 190, y: 330, width: 40, height: 40, orientation: 'horizontal' },
+          { id: 'DRAIN_VALVE', name: 'Drain Valve', controlSensorId: 'DRAIN_VALVE', x: 530, y: 220, width: 40, height: 40, orientation: 'vertical' }
+        ],
+        tanks: [
+          { id: 'RAW_LVL', name: 'Raw Water Tank', levelSensorId: 'RAW_LVL', x: 50, y: 200, width: 120, height: 250, maxCapacity: 50000, unit: 'Liters', color: '#38bdf8' },
+          { id: 'CLN_LVL', name: 'Clean Reservoir', levelSensorId: 'CLN_LVL', x: 750, y: 200, width: 140, height: 250, maxCapacity: 100000, unit: 'Liters', color: '#0ea5e9' }
+        ],
+        pipes: [
+          { id: 'p1', path: 'M 170 350 L 190 350', activeSensorId: 'FEED_VALVE' },
+          { id: 'p2', path: 'M 230 350 L 320 350', activeSensorId: 'FEED_VALVE' },
+          { id: 'p3', path: 'M 380 350 L 440 350 L 440 280 L 480 280', activeSensorId: 'IN_PUMP' },
+          { id: 'p4', path: 'M 580 280 L 750 280', activeSensorId: 'IN_PUMP' },
+          { id: 'p5', path: 'M 750 450 L 580 450', activeSensorId: 'BW_PUMP' },
+          { id: 'p6', path: 'M 520 450 L 440 450 L 440 480', activeSensorId: 'BW_PUMP' },
+          { id: 'p7', path: 'M 550 220 L 550 140 L 480 140', activeSensorId: 'DRAIN_VALVE' }
+        ],
+        sensorOverlays: [
+          { sensorId: 'RAW_LVL', x: 110, y: 150, showScale: true },
+          { sensorId: 'CLN_LVL', x: 820, y: 150, showScale: true },
+          { sensorId: 'PH_SENS', x: 840, y: 480, showScale: true },
+          { sensorId: 'TURB_SENS', x: 670, y: 180, showScale: true },
+          { sensorId: 'FLOW_SENS', x: 280, y: 250, showScale: true }
+        ]
+      },
+      {
+        id: 'chemical_reactor',
+        name: 'Chemical Batch Reactor (CBR-400)',
+        description: 'Catalytic chemical heat reactor monitoring raw feed volumes, heating jacket solenoid, coolant circulation, and vapor pressure.',
+        viewBox: '0 0 1000 600',
+        sensors: [
+          { id: 'RX_LVL', name: 'Reactor Liquid level', type: 'analogue', unit: '%', thresholds: { warningLow: 15, warningHigh: 90 }, scaleMin: 0, scaleMax: 100, description: 'Current fill volume state of chemical vessel.' },
+          { id: 'TEMP_SENS', name: 'Vessel Temperature', type: 'analogue', unit: '°C', thresholds: { warningLow: 20, warningHigh: 130 }, scaleMin: 0, scaleMax: 180, description: 'Core catalytic bed temperature level.' },
+          { id: 'PRES_SENS', name: 'Vapor Pressure', type: 'analogue', unit: 'bar', thresholds: { warningHigh: 6.0 }, scaleMin: 0, scaleMax: 10, description: 'Internal hermetic vapor pressure transmitter.' },
+          { id: 'AGITATOR', name: 'Vessel Agitator Motor', type: 'digital', description: 'Reactant mixing impeller mechanism.' },
+          { id: 'HEAT_VLV', name: 'Jacket Steam Valve', type: 'digital', description: 'Opens steam feed jacket loop.' },
+          { id: 'COOL_VLV', name: 'Emergency Coolant Valve', type: 'digital', description: 'Forces chilled coolant to jacket.' }
+        ],
+        pumps: [
+          { id: 'AGITATOR', name: 'Vessel Agitator', controlSensorId: 'AGITATOR', x: 470, y: 110, width: 60, height: 60, flowDirection: 'down' }
+        ],
+        valves: [
+          { id: 'HEAT_VLV', name: 'Steam Valve', controlSensorId: 'HEAT_VLV', x: 180, y: 350, width: 40, height: 40, orientation: 'horizontal' },
+          { id: 'COOL_VLV', name: 'Coolant Valve', controlSensorId: 'COOL_VLV', x: 780, y: 350, width: 40, height: 40, orientation: 'horizontal' }
+        ],
+        tanks: [
+          { id: 'RX_LVL', name: 'Reaction Vessel', levelSensorId: 'RX_LVL', x: 350, y: 180, width: 300, height: 320, maxCapacity: 4000, unit: 'Liters', color: '#ec4899' }
+        ],
+        pipes: [
+          { id: 'h1', path: 'M 100 370 L 180 370', activeSensorId: 'HEAT_VLV' },
+          { id: 'h2', path: 'M 220 370 L 320 370 L 320 220 L 350 220', activeSensorId: 'HEAT_VLV' },
+          { id: 'c1', path: 'M 900 370 L 820 370', activeSensorId: 'COOL_VLV' },
+          { id: 'c2', path: 'M 780 370 L 680 370 L 680 220 L 650 220', activeSensorId: 'COOL_VLV' },
+          { id: 'rod', path: 'M 500 170 L 500 400', activeSensorId: 'AGITATOR' }
+        ],
+        sensorOverlays: [
+          { sensorId: 'RX_LVL', x: 500, y: 480, showScale: true },
+          { sensorId: 'TEMP_SENS', x: 220, y: 190, showScale: true },
+          { sensorId: 'PRES_SENS', x: 780, y: 190, showScale: true }
+        ]
+      }
+    ];
+
+    // ==================== INITIALIZATION ====================
+    function init() {
+      // Load layouts
+      state.layouts = JSON.parse(JSON.stringify(layoutPresets));
+      
+      // Inject dropdown options
+      const selector = document.getElementById('layout-selector');
+      selector.innerHTML = state.layouts.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+
+      // Populate timeseries telemetry data
+      changeActiveLayout(state.activeLayoutId);
+
+      // Start tick clock loop
+      setInterval(updateRotationAngle, 30);
+      setInterval(updateUtcClock, 1000);
+
+      // Trigger standard render
+      render();
+    }
+
+    // ==================== PROCESS LOOPS & UTCS ====================
+    function updateRotationAngle() {
+      if (state.viewMode === 'monitor' && state.isPlaying) {
+        // Increment impeller speed based on playback multipliers
+        state.rotationAngle = (state.rotationAngle + (10 * state.playbackSpeed)) % 360;
+        
+        // Directly rotate the impellers via fast JS selectors to bypass heavy React renders
+        const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+        if (activeLayout) {
+          activeLayout.pumps.forEach(p => {
+            const el = document.getElementById(`impeller-${p.id}`);
+            if (el) {
+              const activeData = state.timeseries[state.playbackIndex];
+              const isTurnedOn = activeData && activeData.values[p.controlSensorId] === 1;
+              el.setAttribute('transform', `rotate(${isTurnedOn ? state.rotationAngle : 0}, ${p.x + p.width/2}, ${p.y + p.height/2})`);
+            }
+          });
+        }
+      }
+    }
+
+    function updateUtcClock() {
+      const now = new Date();
+      document.getElementById('utc-clock').textContent = now.toUTCString().slice(17, 25) + ' UTC';
+    }
+
+    // ==================== VIEW MODES & INTERACTIVE CONTROLS ====================
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      
+      // Toggle styling of buttons
+      const btnMon = document.getElementById('btn-monitor-mode');
+      const btnDes = document.getElementById('btn-designer-mode');
+      const picker = document.getElementById('layout-picker-container');
+      const jsonLd = document.getElementById('json-loader-container');
+      const sideMeta = document.getElementById('meta-panel');
+      const sidePal = document.getElementById('designer-tools-panel');
+      const monCtrls = document.getElementById('monitor-controls');
+      const codeBox = document.getElementById('designer-code-box');
+
+      if (mode === 'monitor') {
+        btnMon.className = "px-4 py-1.5 rounded text-xs font-bold transition-all bg-emerald-600 text-white shadow";
+        btnDes.className = "px-4 py-1.5 rounded text-xs font-bold transition-all text-slate-400 hover:text-white";
+        picker.style.display = 'block';
+        jsonLd.style.display = 'flex';
+        sideMeta.style.display = 'block';
+        sidePal.classList.add('hidden');
+        monCtrls.style.display = 'flex';
+        codeBox.classList.add('hidden');
+        document.getElementById('designer-bg-image').style.display = 'none';
+        document.getElementById('canvas-dim').textContent = `Resolution: 1000x600`;
+      } else {
+        btnMon.className = "px-4 py-1.5 rounded text-xs font-bold transition-all text-slate-400 hover:text-white";
+        btnDes.className = "px-4 py-1.5 rounded text-xs font-bold transition-all bg-emerald-600 text-white shadow";
+        picker.style.display = 'none';
+        jsonLd.style.display = 'none';
+        sideMeta.style.display = 'none';
+        sidePal.classList.remove('hidden');
+        monCtrls.style.display = 'none';
+        codeBox.classList.remove('hidden');
+        document.getElementById('designer-bg-image').style.display = 'block';
+        document.getElementById('canvas-dim').textContent = `Resolution: ${state.designerGridW}x${state.designerGridH}`;
+        generateLayoutCodeString();
+      }
+
+      state.selectedAsset = null;
+      render();
+    }
+
+    function changeActiveLayout(id) {
+      state.activeLayoutId = id;
+      state.playbackIndex = 0;
+      state.timeseries = generateSimulatedTelemetry(id);
+      
+      // Update metadata pane
+      const layout = state.layouts.find(l => l.id === id);
+      document.getElementById('meta-title').textContent = layout.name;
+      document.getElementById('meta-desc').textContent = layout.description;
+      document.getElementById('schema-key-footer').textContent = layout.id;
+
+      // Reset Timeline bounds
+      document.getElementById('playback-scrubber').max = state.timeseries.length - 1;
+      document.getElementById('playback-scrubber').value = 0;
+
+      state.selectedAsset = null;
+      render();
+    }
+
+    function changePlaybackSpeed(speed) {
+      state.playbackSpeed = Number(speed);
+    }
+
+    function scrubTimeline(index) {
+      state.playbackIndex = Number(index);
+      state.isPlaying = false;
+      document.getElementById('btn-play-pause').textContent = 'PLAY';
+      render();
+    }
+
+    function stepFrame() {
+      state.playbackIndex = (state.playbackIndex + 1) % state.timeseries.length;
+      render();
+    }
+
+    function resetPlayback() {
+      state.playbackIndex = 0;
+      render();
+    }
+
+    function togglePlayback() {
+      state.isPlaying = !state.isPlaying;
+      document.getElementById('btn-play-pause').textContent = state.isPlaying ? 'PAUSE' : 'PLAY';
+      if (state.isPlaying) {
+        runPlaybackLoop();
+      }
+    }
+
+    function runPlaybackLoop() {
+      if (state.isPlaying && state.viewMode === 'monitor') {
+        state.playbackIndex = (state.playbackIndex + 1) % state.timeseries.length;
+        render();
+        // Dynamic timeout based on playback hertz
+        setTimeout(runPlaybackLoop, 2000 / state.playbackSpeed);
+      }
+    }
+
+    function handleJsonTelemetryUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.timeseries = parsed;
+            state.playbackIndex = 0;
+            document.getElementById('playback-scrubber').max = parsed.length - 1;
+            document.getElementById('playback-scrubber').value = 0;
+            alert(`Loaded custom telemetry timeseries successfully! Frame size: ${parsed.length}`);
+            render();
+          } else {
+            alert("Error: Custom telemetry must be a JSON array of timeseries frames.");
+          }
+        } catch(err) {
+          alert("Error parsing JSON file. Please ensure correct JSON structure.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ==================== DRAW / BLUEPRINT DES_FUNCTIONS ====================
+    function setDesignerTool(tool) {
+      state.designerTool = tool;
+      
+      // Update buttons style
+      const tools = ['select', 'tank', 'pump', 'valve', 'scale', 'pipe'];
+      tools.forEach(t => {
+        const el = document.getElementById(`tool-${t}`);
+        if (t === tool) {
+          el.className = "flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-amber-600 border border-amber-500 text-white shadow-md transition-all";
+        } else {
+          el.className = "flex items-center justify-center gap-1.5 p-2 rounded text-xs font-bold bg-[#1e293b] border border-slate-700 hover:bg-slate-700 text-slate-300 transition-all";
+        }
+      });
+
+      // Clear pipe drafting if swapping modes
+      if (tool !== 'pipe') {
+        state.currentPipePoints = [];
+        document.getElementById('pipe-feedback').classList.add('hidden');
+      } else {
+        document.getElementById('pipe-feedback').classList.remove('hidden');
+        document.getElementById('pipe-points-count').textContent = '0';
+      }
+    }
+
+    function updateDesignerGridSize() {
+      state.designerGridW = Number(document.getElementById('designer-grid-w').value);
+      state.designerGridH = Number(document.getElementById('designer-grid-h').value);
+      
+      const svg = document.getElementById('hmi-svg');
+      svg.setAttribute('viewBox', `0 0 ${state.designerGridW} ${state.designerGridH}`);
+      document.getElementById('canvas-dim').textContent = `Resolution: ${state.designerGridW}x${state.designerGridH}`;
+    }
+
+    function handleBlueprintUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        state.designerBlueprintUrl = evt.target.result;
+        const img = document.getElementById('designer-bg-image');
+        img.setAttribute('href', state.designerBlueprintUrl);
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleCanvasInteraction(e) {
+      if (state.viewMode === 'monitor') return;
+
+      const svg = document.getElementById('hmi-svg');
+      const rect = svg.getBoundingClientRect();
+      
+      // Map screen coordinates relative to SVG coordinate grid scale
+      const x = Math.round(((e.clientX - rect.left) / rect.width) * state.designerGridW);
+      const y = Math.round(((e.clientY - rect.top) / rect.height) * state.designerGridH);
+
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+
+      if (state.designerTool === 'pipe') {
+        state.currentPipePoints.push({ x, y });
+        document.getElementById('pipe-points-count').textContent = state.currentPipePoints.length;
+        render();
+        return;
+      }
+
+      if (state.designerTool !== 'select') {
+        // Place chosen element type
+        const stamp = Date.now().toString().slice(-4);
+        
+        if (state.designerTool === 'tank') {
+          const id = `TANK_${stamp}`;
+          activeLayout.sensors.push({
+            id: `LVL_${id}`,
+            name: `${id} Volume Register`,
+            type: 'analogue',
+            unit: '%',
+            scaleMin: 0,
+            scaleMax: 100,
+            description: `Auto-generated level sensor for ${id}`
+          });
+          activeLayout.tanks.push({
+            id: `LVL_${id}`,
+            name: `Storage ${id}`,
+            levelSensorId: `LVL_${id}`,
+            x: x - 50,
+            y: y - 80,
+            width: 100,
+            height: 160,
+            maxCapacity: 5000,
+            unit: 'Liters'
+          });
+          selectAsset('tank', `LVL_${id}`);
+        } 
+        
+        else if (state.designerTool === 'valve') {
+          const id = `VLV_${stamp}`;
+          activeLayout.sensors.push({
+            id: id,
+            name: `Valve Position ${id}`,
+            type: 'digital',
+            description: `Solenoid actuator switch tag.`
+          });
+          activeLayout.valves.push({
+            id: id,
+            name: `Valve ${id}`,
+            controlSensorId: id,
+            x: x - 20,
+            y: y - 20,
+            width: 40,
+            height: 40,
+            orientation: 'horizontal'
+          });
+          selectAsset('valve', id);
+        }
+
+        else if (state.designerTool === 'pump') {
+          const id = `PMP_${stamp}`;
+          activeLayout.sensors.push({
+            id: id,
+            name: `Feed Impeller ${id}`,
+            type: 'digital',
+            description: `Motor control contact register.`
+          });
+          activeLayout.pumps.push({
+            id: id,
+            name: `Pump ${id}`,
+            controlSensorId: id,
+            x: x - 30,
+            y: y - 30,
+            width: 60,
+            height: 60,
+            flowDirection: 'right'
+          });
+          selectAsset('pump', id);
+        }
+
+        else if (state.designerTool === 'scale') {
+          const id = `SNS_${stamp}`;
+          activeLayout.sensors.push({
+            id: id,
+            name: `Process Metric ${id}`,
+            type: 'analogue',
+            unit: 'bar',
+            scaleMin: 0,
+            scaleMax: 10,
+            thresholds: { warningHigh: 8.0 },
+            description: `Auto-calibrated pressure transmitter.`
+          });
+          activeLayout.sensorOverlays.push({
+            sensorId: id,
+            x: x,
+            y: y,
+            showScale: true
+          });
+          selectAsset('scale', id);
+        }
+
+        // Return to select cursor
+        setDesignerTool('select');
+      }
+    }
+
+    function finishDrawingPipe() {
+      if (state.currentPipePoints.length < 2) {
+        state.currentPipePoints = [];
+        setDesignerTool('select');
+        return;
+      }
+
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const stamp = Date.now().toString().slice(-4);
+      const id = `PIPE_${stamp}`;
+
+      // Build path string: M x1 y1 L x2 y2 ...
+      let pathStr = '';
+      state.currentPipePoints.forEach((pt, idx) => {
+        pathStr += (idx === 0 ? 'M' : 'L') + ` ${pt.x} ${pt.y} `;
+      });
+
+      activeLayout.pipes.push({
+        id: id,
+        path: pathStr.trim()
+      });
+
+      state.currentPipePoints = [];
+      selectAsset('pipe', id);
+      setDesignerTool('select');
+    }
+
+    // ==================== INSPECTOR & EDITORS ====================
+    function selectAsset(type, id) {
+      state.selectedAsset = { type, id };
+      render();
+    }
+
+    function decommissionActiveAsset() {
+      if (!state.selectedAsset) return;
+
+      const { type, id } = state.selectedAsset;
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+
+      if (type === 'tank') {
+        activeLayout.tanks = activeLayout.tanks.filter(t => t.levelSensorId !== id);
+        activeLayout.sensors = activeLayout.sensors.filter(s => s.id !== id);
+      } else if (type === 'valve') {
+        activeLayout.valves = activeLayout.valves.filter(v => v.id !== id);
+        activeLayout.sensors = activeLayout.sensors.filter(s => s.id !== id);
+      } else if (type === 'pump') {
+        activeLayout.pumps = activeLayout.pumps.filter(p => p.id !== id);
+        activeLayout.sensors = activeLayout.sensors.filter(s => s.id !== id);
+      } else if (type === 'scale') {
+        activeLayout.sensorOverlays = activeLayout.sensorOverlays.filter(s => s.sensorId !== id);
+        activeLayout.sensors = activeLayout.sensors.filter(s => s.id !== id);
+      } else if (type === 'pipe') {
+        activeLayout.pipes = activeLayout.pipes.filter(p => p.id !== id);
+      }
+
+      state.selectedAsset = null;
+      render();
+    }
+
+    function updateActiveAssetField(field, value) {
+      if (!state.selectedAsset) return;
+      const { type, id } = state.selectedAsset;
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+
+      let target = null;
+      if (type === 'tank') target = activeLayout.tanks.find(t => t.levelSensorId === id);
+      else if (type === 'valve') target = activeLayout.valves.find(v => v.id === id);
+      else if (type === 'pump') target = activeLayout.pumps.find(p => p.id === id);
+      else if (type === 'scale') target = activeLayout.sensorOverlays.find(s => s.sensorId === id);
+      else if (type === 'pipe') target = activeLayout.pipes.find(p => p.id === id);
+
+      if (target) {
+        target[field] = value;
+        render();
+      }
+    }
+
+    function updateActiveSensorField(field, value) {
+      if (!state.selectedAsset) return;
+      const { id } = state.selectedAsset;
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const sensor = activeLayout.sensors.find(s => s.id === id);
+      
+      if (sensor) {
+        sensor[field] = value;
+        render();
+      }
+    }
+
+    function updateActiveSensorThreshold(field, value) {
+      if (!state.selectedAsset) return;
+      const { id } = state.selectedAsset;
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const sensor = activeLayout.sensors.find(s => s.id === id);
+      
+      if (sensor) {
+        if (!sensor.thresholds) sensor.thresholds = {};
+        sensor.thresholds[field] = value;
+        render();
+      }
+    }
+
+    function generateLayoutCodeString() {
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const cleanOutput = {
+        ...activeLayout,
+        viewBox: `0 0 ${state.designerGridW} ${state.designerGridH}`,
+        defaultTimeseries: [] // omit for brevity
+      };
+
+      const blockStr = `export const customLayout = ${JSON.stringify(cleanOutput, null, 2)};`;
+      document.getElementById('output-layout-json').value = blockStr;
+    }
+
+    function copyLayoutCode() {
+      const txt = document.getElementById('output-layout-json');
+      txt.select();
+      document.execCommand('copy');
+      alert("HMI Layout code copied directly to clipboard!");
+    }
+
+    // ==================== RENDERING PIPELINE ENGINE ====================
+    function render() {
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const activeFrame = state.timeseries[state.playbackIndex];
+      const values = activeFrame ? activeFrame.values : {};
+      const flags = activeFrame ? activeFrame.flags : {};
+
+      // 1. UPDATE LABELS & CONTROLS UI
+      if (state.viewMode === 'monitor') {
+        document.getElementById('frame-indicator').textContent = `FRAME ${state.playbackIndex + 1}/${state.timeseries.length}`;
+        document.getElementById('playback-scrubber').value = state.playbackIndex;
+        document.getElementById('frame-timestamp').textContent = activeFrame ? activeFrame.timestamp : '00:00:00';
+        
+        // Alarms count (Warnings or Bads)
+        let activeAlarmsCount = 0;
+        if (activeFrame && activeFrame.flags) {
+          activeAlarmsCount = Object.values(activeFrame.flags).filter(f => f !== null).length;
+        }
+
+        const alarmEl = document.getElementById('stat-alarms-active');
+        if (activeAlarmsCount > 0) {
+          alarmEl.textContent = `${activeAlarmsCount} ACTIVE`;
+          alarmEl.className = "font-mono font-bold text-sm text-rose-500 animate-pulse";
+          document.getElementById('status-glow').className = "w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]";
+        } else {
+          alarmEl.textContent = "0 ACT";
+          alarmEl.className = "font-mono font-bold text-sm text-emerald-400";
+          document.getElementById('status-glow').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]";
+        }
+        document.getElementById('stat-tags-count').textContent = activeLayout.sensors.length;
+      }
+
+      // 2. RENDER PIPES
+      const pipesGroup = document.getElementById('pipes-group');
+      let pipesHtml = '';
+      activeLayout.pipes.forEach(p => {
+        const isActive = p.activeSensorId ? values[p.activeSensorId] === 1 : false;
+        const color = isActive ? '#38bdf8' : '#334155';
+        const isSelected = state.selectedAsset && state.selectedAsset.type === 'pipe' && state.selectedAsset.id === p.id;
+        const strokeColor = isSelected ? '#eab308' : color;
+
+        pipesHtml += `
+          <g onclick="selectAsset('pipe', '${p.id}'); event.stopPropagation();" class="cursor-pointer">
+            <path d="${p.path}" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="${p.path}" fill="none" stroke="${strokeColor}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"
+              ${isActive ? 'stroke-dasharray="6, 6"' : ''}/>
+          </g>
+        `;
+      });
+
+      // Draw in-progress pipe drafting nodes if in Designer Pipe mode
+      if (state.viewMode === 'designer' && state.designerTool === 'pipe') {
+        state.currentPipePoints.forEach((pt, idx) => {
+          pipesHtml += `<circle cx="${pt.x}" cy="${pt.y}" r="5" fill="#f59e0b"/>`;
+          if (idx > 0) {
+            const prev = state.currentPipePoints[idx - 1];
+            pipesHtml += `<line x1="${prev.x}" y1="${prev.y}" x2="${pt.x}" y2="${pt.y}" stroke="#f59e0b" stroke-width="2"/>`;
+          }
+        });
+      }
+      pipesGroup.innerHTML = pipesHtml;
+
+      // 3. RENDER TANKS
+      const tanksGroup = document.getElementById('tanks-group');
+      let tanksHtml = '';
+      activeLayout.tanks.forEach(t => {
+        const levelSensor = activeLayout.sensors.find(s => s.id === t.levelSensorId);
+        const rawVal = values[t.levelSensorId];
+        const hasVal = rawVal !== undefined && rawVal !== null;
+        
+        const percent = hasVal 
+          ? Math.max(0, Math.min(100, levelSensor.scaleMin !== undefined && levelSensor.scaleMax !== undefined
+            ? ((rawVal - levelSensor.scaleMin) / (levelSensor.scaleMax - levelSensor.scaleMin)) * 100
+            : rawVal))
+          : 0;
+
+        const liquidH = (percent / 100) * (t.height - 12);
+        const liquidY = t.y + t.height - liquidH - 4;
+        const isSelected = state.selectedAsset && state.selectedAsset.type === 'tank' && state.selectedAsset.id === t.levelSensorId;
+
+        tanksHtml += `
+          <g onclick="selectAsset('tank', '${t.levelSensorId}'); event.stopPropagation();" class="cursor-pointer">
+            <!-- Tank Container -->
+            <rect x="${t.x}" y="${t.y}" width="${t.width}" height="${t.height}" rx="6" fill="#111622" stroke="${isSelected ? '#eab308' : '#475569'}" stroke-width="2" />
+            <!-- Liquid Overlay -->
+            <rect x="${t.x + 4}" y="${liquidY}" width="${t.width - 8}" height="${liquidH}" rx="3" fill="${t.color || '#38bdf8'}" opacity="0.6" />
+            <!-- Text Info -->
+            <text x="${t.x + t.width/2}" y="${t.y + 25}" text-anchor="middle" fill="#94a3b8" class="font-sans text-[10px] font-bold tracking-wider uppercase">${t.name}</text>
+            <text x="${t.x + t.width/2}" y="${t.y + t.height/2 + 8}" text-anchor="middle" fill="#f8fafc" class="font-mono text-base font-bold">${hasVal ? rawVal + (levelSensor.unit || '%') : '--%'}</text>
+            <text x="${t.x + t.width/2}" y="${t.y + t.height - 15}" text-anchor="middle" fill="#64748b" class="font-mono text-[9px]">Cap: ${t.maxCapacity} ${t.unit}</text>
+          </g>
+        `;
+      });
+      tanksGroup.innerHTML = tanksHtml;
+
+      // 4. RENDER VALVES
+      const valvesGroup = document.getElementById('valves-group');
+      let valvesHtml = '';
+      activeLayout.valves.forEach(v => {
+        const valSensor = activeLayout.sensors.find(s => s.id === v.controlSensorId);
+        const isOpen = values[v.controlSensorId] === 1;
+        const isSelected = state.selectedAsset && state.selectedAsset.type === 'valve' && state.selectedAsset.id === v.id;
+        const fillCol = isOpen ? '#10b981' : '#f43f5e';
+        const cx = v.x + v.width/2;
+        const cy = v.y + v.height/2;
+
+        valvesHtml += `
+          <g onclick="selectAsset('valve', '${v.id}'); event.stopPropagation();" class="cursor-pointer"
+             onmouseenter="showTooltip(event, '${v.controlSensorId}')" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()">
+            <polygon points="${v.x},${v.y} ${cx},${cy} ${v.x},${v.y + v.height}" fill="${fillCol}" stroke="${isSelected ? '#eab308' : '#334155'}" stroke-width="1.5"/>
+            <polygon points="${v.x + v.width},${v.y} ${cx},${cy} ${v.x + v.width},${v.y + v.height}" fill="${fillCol}" stroke="${isSelected ? '#eab308' : '#334155'}" stroke-width="1.5"/>
+            <circle cx="${cx}" cy="${cy}" r="4" fill="#0f172a" />
+            <!-- Valve Stem line -->
+            <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${v.y - 10}" stroke="#475569" stroke-width="2" />
+            <line x1="${cx - 8}" y1="${v.y - 10}" x2="${cx + 8}" y2="${v.y - 10}" stroke="#475569" stroke-width="3" />
+            <!-- Label -->
+            <text x="${cx}" y="${v.y + v.height + 12}" text-anchor="middle" fill="#94a3b8" class="font-mono text-[9px] font-semibold">${v.id}</text>
+          </g>
+        `;
+      });
+      valvesGroup.innerHTML = valvesHtml;
+
+      // 5. RENDER PUMPS
+      const pumpsGroup = document.getElementById('pumps-group');
+      let pumpsHtml = '';
+      activeLayout.pumps.forEach(p => {
+        const isSelected = state.selectedAsset && state.selectedAsset.type === 'pump' && state.selectedAsset.id === p.id;
+        const isTurnedOn = values[p.controlSensorId] === 1;
+        const cx = p.x + p.width/2;
+        const cy = p.y + p.height/2;
+
+        pumpsHtml += `
+          <g onclick="selectAsset('pump', '${p.id}'); event.stopPropagation();" class="cursor-pointer"
+             onmouseenter="showTooltip(event, '${p.controlSensorId}')" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()">
+            <circle cx="${cx}" cy="${cy}" r="${p.width/2}" fill="#111622" stroke="${isSelected ? '#eab308' : isTurnedOn ? '#10b981' : '#475569'}" stroke-width="3" />
+            <g id="impeller-${p.id}">
+              <line x1="${cx}" y1="${cy - p.width/3}" x2="${cx}" y2="${cy + p.width/3}" stroke="${isTurnedOn ? '#34d399' : '#475569'}" stroke-width="2" />
+              <line x1="${cx - p.width/3}" y1="${cy}" x2="${cx + p.width/3}" y2="${cy}" stroke="${isTurnedOn ? '#34d399' : '#475569'}" stroke-width="2" />
+            </g>
+            <circle cx="${cx}" cy="${cy}" r="4" fill="#cbd5e1" />
+            <!-- ID Label -->
+            <text x="${cx}" y="${p.y + p.height + 12}" text-anchor="middle" fill="#cbd5e1" class="font-mono text-[9px] font-semibold">${p.id}</text>
+          </g>
+        `;
+      });
+      pumpsGroup.innerHTML = pumpsHtml;
+
+      // 6. RENDER SCALE GAUGES & PLACED TAG OVERLAYS
+      const sensorsGroup = document.getElementById('sensors-group');
+      let sensorsHtml = '';
+      activeLayout.sensorOverlays.forEach(overlay => {
+        const sensor = activeLayout.sensors.find(s => s.id === overlay.sensorId);
+        if (!sensor) return;
+
+        const val = values[overlay.sensorId];
+        const flag = flags[overlay.sensorId];
+        const isSelected = state.selectedAsset && state.selectedAsset.type === 'scale' && state.selectedAsset.id === overlay.sensorId;
+        const min = sensor.scaleMin ?? 0;
+        const max = sensor.scaleMax ?? 100;
+        
+        let strokeColor = isSelected ? '#eab308' : '#475569';
+        let flagCol = '#cbd5e1';
+        let alertMarker = '';
+
+        if (flag === 'W') {
+          strokeColor = '#f59e0b';
+          flagCol = '#f59e0b';
+          alertMarker = `<circle cx="85" cy="2" r="5" fill="#f59e0b" class="animate-pulse" />`;
+        } else if (flag === 'B') {
+          strokeColor = '#f43f5e';
+          flagCol = '#f43f5e';
+          alertMarker = `<circle cx="85" cy="2" r="5" fill="#f43f5e" class="animate-ping" />`;
+        }
+
+        // Horizontal Pointer Gauge logic (80px axis height)
+        let ptrY = 80;
+        if (sensor.type === 'analogue' && val !== undefined) {
+          ptrY = 80 - ((Math.max(min, Math.min(max, val)) - min) / (max - min)) * 80;
+        }
+
+        sensorsHtml += `
+          <g onclick="selectAsset('scale', '${overlay.sensorId}'); event.stopPropagation();" class="cursor-pointer"
+             onmouseenter="showTooltip(event, '${overlay.sensorId}')" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()">
+            <!-- Vertical calibration axis scale -->
+            ${overlay.showScale && sensor.type === 'analogue' ? `
+              <g transform="translate(${overlay.x - 30}, ${overlay.y - 40})">
+                <rect x="0" y="0" width="4" height="80" rx="2" fill="#1e293b" />
+                <polygon points="4,${ptrY - 4} 12,${ptrY} 4,${ptrY + 4}" fill="${flag ? flagCol : '#10b981'}" />
+                <text x="-6" y="5" fill="#64748b" font-size="8" text-anchor="end" class="font-mono">${max}</text>
+                <text x="-6" y="85" fill="#64748b" font-size="8" text-anchor="end" class="font-mono">${min}</text>
+              </g>
+            ` : ''}
+
+            <!-- Value Display box -->
+            <rect x="${overlay.x}" y="${overlay.y - 12}" width="95" height="26" rx="4" fill="#0f172a" stroke="${strokeColor}" stroke-width="${flag ? 2 : 1.2}" />
+            <text x="${overlay.x + 8}" y="${overlay.y - 16}" fill="#94a3b8" class="font-mono text-[9px] font-semibold">${sensor.id}</text>
+            <text x="${overlay.x + 40}" y="${overlay.y + 5}" text-anchor="middle" fill="${flag ? flagCol : '#f8fafc'}" class="font-mono text-xs font-bold">
+              ${val !== undefined ? `${val} ${sensor.unit || ''}` : 'No Data'}
+            </text>
+            ${alertMarker}
+          </g>
+        `;
+      });
+      sensorsGroup.innerHTML = sensorsHtml;
+
+      // 7. SYNC DETAILED INSPECTOR PROPERTIES PANE
+      renderInspector();
+
+      // Regenerate config code output string if in designer
+      if (state.viewMode === 'designer') {
+        generateLayoutCodeString();
+      }
+    }
+
+    // ==================== ASSET DETAILS INSPECTOR POPULATOR ====================
+    function renderInspector() {
+      const emptyState = document.getElementById('inspector-empty');
+      const formState = document.getElementById('inspector-form');
+      const decomBtn = document.getElementById('btn-decommission');
+
+      if (!state.selectedAsset) {
+        emptyState.classList.remove('hidden');
+        formState.classList.add('hidden');
+        decomBtn.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      formState.classList.remove('hidden');
+      decomBtn.classList.remove('hidden');
+
+      const { type, id } = state.selectedAsset;
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const sensor = activeLayout.sensors.find(s => s.id === id);
+
+      document.getElementById('inspector-asset-type').textContent = type.toUpperCase();
+      document.getElementById('inspector-asset-tag').textContent = id;
+
+      // Reset nested specific fields visibility
+      document.getElementById('inspect-valve-fields').classList.add('hidden');
+      document.getElementById('inspect-pump-fields').classList.add('hidden');
+      document.getElementById('inspect-tank-fields').classList.add('hidden');
+      document.getElementById('inspect-sensor-fields').classList.add('hidden');
+
+      if (type === 'tank') {
+        const tank = activeLayout.tanks.find(t => t.levelSensorId === id);
+        if (tank) {
+          document.getElementById('inspect-tank-fields').classList.remove('hidden');
+          document.getElementById('inspect-label').value = tank.name;
+          document.getElementById('inspect-tank-cap').value = tank.maxCapacity;
+          document.getElementById('inspect-tank-unit').value = tank.unit;
+        }
+      } 
+      
+      else if (type === 'valve') {
+        const valve = activeLayout.valves.find(v => v.id === id);
+        if (valve) {
+          document.getElementById('inspect-valve-fields').classList.remove('hidden');
+          document.getElementById('inspect-label').value = valve.name;
+          document.getElementById('inspect-valve-orient').value = valve.orientation || 'horizontal';
+        }
+      }
+
+      else if (type === 'pump') {
+        const pump = activeLayout.pumps.find(p => p.id === id);
+        if (pump) {
+          document.getElementById('inspect-pump-fields').classList.remove('hidden');
+          document.getElementById('inspect-label').value = pump.name;
+          document.getElementById('inspect-pump-flow').value = pump.flowDirection || 'right';
+        }
+      }
+
+      else if (type === 'scale') {
+        const overlay = activeLayout.sensorOverlays.find(s => s.sensorId === id);
+        if (overlay) {
+          document.getElementById('inspect-label').value = sensor ? sensor.name : '';
+        }
+      }
+
+      // Populate analogue limits calibrator fields if analogue sensor type
+      if (sensor) {
+        document.getElementById('inspect-description').value = sensor.description || '';
+        
+        if (sensor.type === 'analogue') {
+          document.getElementById('inspect-sensor-fields').classList.remove('hidden');
+          document.getElementById('inspect-scale-min').value = sensor.scaleMin ?? 0;
+          document.getElementById('inspect-scale-max').value = sensor.scaleMax ?? 100;
+          document.getElementById('inspect-warn-low').value = sensor.thresholds?.warningLow ?? '';
+          document.getElementById('inspect-warn-high').value = sensor.thresholds?.warningHigh ?? '';
+        }
+      }
+    }
+
+    // ==================== PROCESS MOUSE TOOLTIP INJECTOR ====================
+    function showTooltip(e, sensorId) {
+      if (state.viewMode === 'designer') return;
+
+      const activeLayout = state.layouts.find(l => l.id === state.activeLayoutId);
+      const sensor = activeLayout.sensors.find(s => s.id === sensorId);
+      if (!sensor) return;
+
+      const activeFrame = state.timeseries[state.playbackIndex];
+      const val = activeFrame ? activeFrame.values[sensorId] : undefined;
+      const flag = activeFrame ? activeFrame.flags[sensorId] : null;
+
+      let flagLabel = '<span class="text-emerald-400 font-semibold uppercase tracking-wider">NORMAL</span>';
+      if (flag === 'W') flagLabel = '<span class="text-amber-400 font-bold tracking-widest">⚠️ WARNING</span>';
+      else if (flag === 'B') flagLabel = '<span class="text-rose-400 font-bold tracking-widest animate-pulse">🛑 ALARM BAD</span>';
+
+      const tooltip = document.getElementById('hmi-tooltip');
+      tooltip.innerHTML = `
+        <div class="border-b border-slate-700 pb-1.5 mb-2 flex items-center justify-between">
+          <span class="font-mono text-[9px] font-bold text-slate-400">${sensor.id}</span>
+          ${flagLabel}
+        </div>
+        <p class="text-slate-300 text-[10px] leading-relaxed mb-2">${sensor.description || 'No register details'}</p>
+        <div class="space-y-1 pt-1.5 border-t border-slate-800 font-mono text-[10px]">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Live Telemetry:</span>
+            <span class="text-white font-bold">${val !== undefined ? `${val} ${sensor.unit || ''}` : 'No Data'}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Signal Code:</span>
+            <span class="text-slate-400 capitalize">${sensor.type}</span>
+          </div>
+        </div>
+      `;
+      tooltip.style.opacity = '1';
+    }
+
+    function moveTooltip(e) {
+      const tooltip = document.getElementById('hmi-tooltip');
+      const bounding = e.currentTarget.ownerSVGElement.getBoundingClientRect();
+      const x = e.clientX - bounding.left + 15;
+      const y = e.clientY - bounding.top + 15;
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    }
+
+    function hideTooltip() {
+      document.getElementById('hmi-tooltip').style.opacity = '0';
+    }
+
+    // RUN THE BOOTSTRAP INITIALIZATION ON LOAD
+    window.onload = init;
+  </script>
+</body>
+</html>
