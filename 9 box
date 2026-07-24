@@ -113,6 +113,7 @@
         }
 
         .nine-box-cell {
+            position: relative;
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 0.75rem;
@@ -156,6 +157,46 @@
         }
         .nine-box-cell.selected small {
             color: #bfdbfe;
+        }
+
+        /* Tooltip Style (CSS-only trigger) */
+        .nine-box-cell .tooltip-text {
+            visibility: hidden;
+            width: 220px;
+            background-color: #0f172a;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-weight: normal;
+            font-size: 0.7rem;
+            line-height: 1.3;
+            pointer-events: none;
+        }
+
+        .nine-box-cell .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #0f172a transparent transparent transparent;
+        }
+
+        .nine-box-cell:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(-2px);
         }
 
         /* Skills table formatting */
@@ -241,6 +282,9 @@
                 min-height: auto;
                 padding: 0.5rem;
             }
+            .nine-box-cell .tooltip-text {
+                display: none; /* Hide tooltips on small mobile touch targets */
+            }
         }
     </style>
 </head>
@@ -305,7 +349,7 @@
         <div class="card">
             <h2>2. Nine-Box Talent Placement</h2>
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-                Select the quadrant that matches the employee's intersection of <strong>Performance</strong> (horizontal) and <strong>Potential</strong> (vertical).
+                Select the quadrant that matches the employee's intersection of <strong>Performance</strong> (horizontal) and <strong>Potential</strong> (vertical). <em>Hover over cells to see definitions.</em>
             </p>
 
             <div class="grid-2">
@@ -327,48 +371,57 @@
                 </div>
             </div>
 
-            <!-- Visual 3x3 Grid Representing the 9 Box Matrix -->
+            <!-- Visual 3x3 Grid Representing the 9 Box Matrix with Interactive Tooltips -->
             <div class="nine-box-picker" id="nineBoxVisual">
                 <!-- Row 1: High Potential -->
                 <div class="nine-box-cell cell-high-low" data-pot="High" data-perf="Low" onclick="selectCell('High','Low')">
                     Enigma
                     <small>High Pot / Low Perf</small>
+                    <span class="tooltip-text"><strong>Enigma:</strong> Capable of much more, but underperforming. Focus on identifying root cause obstacles, mentoring, or structural mismatches.</span>
                 </div>
                 <div class="nine-box-cell cell-high-med" data-pot="High" data-perf="Medium" onclick="selectCell('High','Medium')">
                     Growth Employee
                     <small>High Pot / Med Perf</small>
+                    <span class="tooltip-text"><strong>Growth Employee:</strong> On track for upward movement. Needs stretch assignments and targeted leadership challenges to unlock full performance.</span>
                 </div>
                 <div class="nine-box-cell cell-high-high" data-pot="High" data-perf="High" onclick="selectCell('High','High')">
                     Future Leader
                     <small>High Pot / High Perf</small>
+                    <span class="tooltip-text"><strong>Future Leader:</strong> Top talent. Ready for fast-track progression, succession planning, and broad strategic exposure.</span>
                 </div>
 
                 <!-- Row 2: Medium Potential -->
                 <div class="nine-box-cell cell-med-low" data-pot="Medium" data-perf="Low" onclick="selectCell('Medium','Low')">
                     Dilemma
                     <small>Med Pot / Low Perf</small>
+                    <span class="tooltip-text"><strong>Dilemma:</strong> Performance is lagging. Requires a Performance Improvement Plan (PIP) or focused skills coaching to determine future viability.</span>
                 </div>
                 <div class="nine-box-cell cell-med-med" data-pot="Medium" data-perf="Medium" onclick="selectCell('Medium','Medium')">
                     Core Employee
                     <small>Med Pot / Med Perf</small>
+                    <span class="tooltip-text"><strong>Core Employee:</strong> Reliable backbone of the team. Keep engaged with steady development, lateral expansions, and peer coaching roles.</span>
                 </div>
                 <div class="nine-box-cell cell-med-high" data-pot="Medium" data-perf="High" onclick="selectCell('Medium','High')">
                     High Impact Performer
                     <small>Med Pot / High Perf</small>
+                    <span class="tooltip-text"><strong>High Impact:</strong> Star contributor in current role. Nurture with leadership training to help them step fully into high potential bands.</span>
                 </div>
 
                 <!-- Row 3: Low Potential -->
                 <div class="nine-box-cell cell-low-low" data-pot="Low" data-perf="Low" onclick="selectCell('Low','Low')">
                     Underperformer
                     <small>Low Pot / Low Perf</small>
+                    <span class="tooltip-text"><strong>Underperformer:</strong> Significant concern. Immediate reassessment of role fit, performance plan, or transition required.</span>
                 </div>
                 <div class="nine-box-cell cell-low-med" data-pot="Low" data-perf="Medium" onclick="selectCell('Low','Medium')">
                     Effective
                     <small>Low Pot / Med Perf</small>
+                    <span class="tooltip-text"><strong>Effective:</strong> Solid performer with limited growth path. Great for stability. Support with skill updates to keep their current performance optimized.</span>
                 </div>
                 <div class="nine-box-cell cell-low-high" data-pot="Low" data-perf="High" onclick="selectCell('Low','High')">
                     Trusted Professional
                     <small>Low Pot / High Perf</small>
+                    <span class="tooltip-text"><strong>Trusted Professional:</strong> High specialist value. Retain at all costs through strong reward recognition and master/expert level roles.</span>
                 </div>
             </div>
         </div>
@@ -430,8 +483,8 @@
                                 <option value="Expert">Expert / Role Model</option>
                             </select>
                         </td>
-                        <td><input type="text" class="skill-comment" data-skill="Leadership" placeholder="Observation..."></td>
-                    </tr>
+                        <td><input type="text" class="skill-comment" data-skill="Leadership" 
+  </tr>
                 </tbody>
             </table>
         </div>
@@ -501,4 +554,377 @@
     function exportData() {
         const skills = [];
         document.querySelectorAll('#skillsTableBody tr').forEach(row => {
-    
+            const gradeEl = row.querySelector('.skill-grade');
+            const commentEl = row.querySelector('.skill-comment');
+            if (gradeEl) {
+                skills.push({
+                    skill: gradeEl.getAttribute('data-skill'),
+                    grade: gradeEl.value,
+                    comment: commentEl.value
+                });
+            }
+        });
+
+        const dataset = {
+            employeeName: document.getElementById('employeeName').value,
+            jobTitle: document.getElementById('jobTitle').value,
+            grade: document.getElementById('grade').value,
+            timeInPos: document.getElementById('timeInPos').value,
+            reviewDate: document.getElementById('reviewDate').value,
+            managerName: document.getElementById('managerName').value,
+            attendance: document.getElementById('attendance').value,
+            potential: document.getElementById('potential').value,
+            performance: document.getElementById('performance').value,
+            skills: skills,
+            performanceComments: document.getElementById('performanceComments').value,
+            suggestions: document.getElementById('suggestions').value
+        };
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataset, null, 4));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `talent_review_${dataset.employeeName.replace(/\s+/g, '_') || 'draft'}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    }
+
+    // Import saved JSON dataset back into DOM layout state
+    function importData(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (data.employeeName !== undefined) document.getElementById('employeeName').value = data.employeeName;
+                if (data.jobTitle !== undefined) document.getElementById('jobTitle').value = data.jobTitle;
+                if (data.grade !== undefined) document.getElementById('grade').value = data.grade;
+                if (data.timeInPos !== undefined) document.getElementById('timeInPos').value = data.timeInPos;
+                if (data.reviewDate !== undefined) document.getElementById('reviewDate').value = data.reviewDate;
+                if (data.managerName !== undefined) document.getElementById('managerName').value = data.managerName;
+                if (data.attendance !== undefined) document.getElementById('attendance').value = data.attendance;
+                if (data.potential !== undefined) document.getElementById('potential').value = data.potential;
+                if (data.performance !== undefined) document.getElementById('performance').value = data.performance;
+                if (data.performanceComments !== undefined) document.getElementById('performanceComments').value = data.performanceComments;
+                if (data.suggestions !== undefined) document.getElementById('suggestions').value = data.suggestions;
+
+                if (data.skills && Array.isArray(data.skills)) {
+                    data.skills.forEach(skillObj => {
+                        const gradeSelect = document.querySelector(`.skill-grade[data-skill="${skillObj.skill}"]`);
+                        const commentInput = document.querySelector(`.skill-comment[data-skill="${skillObj.skill}"]`);
+                        if (gradeSelect) gradeSelect.value = skillObj.grade;
+                        if (commentInput) commentInput.value = skillObj.comment;
+                    });
+                }
+
+                syncNineBoxSelectors();
+                alert("Form configuration imported successfully!");
+            } catch (err) {
+                alert("Error reading file! Please check that file matches configuration structure standards.");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // Render static, clean report view layout matching specifications 
+    function generateReport() {
+        const name = document.getElementById('employeeName').value || 'Unnamed Employee';
+        const title = document.getElementById('jobTitle').value || 'N/A';
+        const grade = document.getElementById('grade').value || 'N/A';
+        const timePos = document.getElementById('timeInPos').value || 'N/A';
+        const date = document.getElementById('reviewDate').value || 'N/A';
+        const mgr = document.getElementById('managerName').value || 'N/A';
+        const attend = document.getElementById('attendance').value || 'None';
+        
+        const pot = document.getElementById('potential').value;
+        const perf = document.getElementById('performance').value;
+        const placementKey = `${pot}-${perf}`;
+        const classification = gridMap[placementKey] || { title: 'Unknown', desc: 'No Selection Made' };
+
+        // Process skills breakdown for KPI Mini-Scorecard Dashboard
+        let expertCount = 0;
+        let competentCount = 0;
+        let improvementCount = 0;
+        let skillsMarkup = '';
+        
+        const rows = document.querySelectorAll('#skillsTableBody tr');
+        rows.forEach(row => {
+            const skillName = row.cells[0].innerText;
+            const gradeVal = row.querySelector('.skill-grade').value;
+            const commentVal = row.querySelector('.skill-comment').value || 'No additional comments provided.';
+            
+            let badgeClass = 'badge-comp';
+            if (gradeVal === 'Needs Improvement') {
+                badgeClass = 'badge-warn';
+                improvementCount++;
+            } else if (gradeVal === 'Expert') {
+                badgeClass = 'badge-ex';
+                expertCount++;
+            } else {
+                competentCount++;
+            }
+
+skillsMarkup += `
+                <tr>
+                    <td><strong>${skillName}</strong></td>
+                    <td><span class="badge ${badgeClass}">${gradeVal}</span></td>
+                    <td>${commentVal}</td>
+                </tr>
+            `;
+        });
+
+        // Calculate progress percentage metric
+        const totalSkills = rows.length;
+        const scorePercentage = Math.round(((expertCount * 100) + (competentCount * 60)) / totalSkills);
+
+        const getBoxHighlight = (boxPot, boxPerf) => {
+            return (boxPot === pot && boxPerf === perf) ? 'active' : 'dimmed';
+        };
+
+        const reportTemplate = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Talent Review Report - ${name}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            background: #fff;
+            line-height: 1.4;
+            padding: 30px;
+        }
+        .report-header {
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .meta-item {
+            font-size: 14px;
+        }
+        .meta-label {
+            font-weight: bold;
+            color: #64748b;
+        }
+        
+        /* Dashboard Feature 2: Dashboard scorecards */
+        .dash-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .dash-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            background-color: #fafbfd;
+            text-align: center;
+        }
+        .dash-val {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-top: 4px;
+        }
+        .dash-lbl {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 18px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 5px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #1e3a8a;
+        }
+        
+        /* Nine-Box Display Grid */
+        .nine-box-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 25px;
+            max-width: 600px;
+        }
+        .box-cell {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+            font-size: 11px;
+            background-color: #f8fafc;
+            font-weight: bold;
+            opacity: 0.35;
+        }
+        .box-cell.active {
+            opacity: 1;
+            background-color: #2563eb;
+            color: white;
+            border-color: #1d4ed8;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .placement-banner {
+            background-color: #eff6ff;
+            border-left: 4px solid #2563eb;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 25px;
+        }
+        
+        /* Table styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+        }
+        th {
+            background-color: #f1f5f9;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .badge-comp { background: #dbeafe; color: #1e40af; }
+        .badge-warn { background: #fee2e2; color: #991b1b; }
+        .badge-ex { background: #dcfce7; color: #166534; }
+        
+        .notes-block {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <div class="report-title">People Performance Meeting Review</div>
+        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Talent calibration dashboard & skill analysis summary</div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Employee Name:</span> ${name}</div>
+        <div class="meta-item"><span class="meta-label">Job Title:</span> ${title}</div>
+        <div class="meta-item"><span class="meta-label">Grade/Level:</span> ${grade}</div>
+        <div class="meta-item"><span class="meta-label">Time in Position:</span> ${timePos}</div>
+        <div class="meta-item"><span class="meta-label">Date of Review:</span> ${date}</div>
+        <div class="meta-item"><span class="meta-label">Reviewing Manager:</span> ${mgr}</div>
+        <div class="meta-item" style="grid-column: span 2;"><span class="meta-label">In Attendance:</span> ${attend}</div>
+    </div>
+
+    <!-- KPI Dashboard Feature Card Section -->
+    <div class="dash-row">
+        <div class="dash-card">
+            <div class="dash-lbl">Calibration Placement</div>
+            <div class="dash-val" style="font-size: 16px;">${classification.title}</div>
+        </div>
+        <div class="dash-card">
+            <div class="dash-lbl">Skills Target Health</div>
+            <div class="dash-val">${scorePercentage}%</div>
+        </div>
+        <div class="dash-card">
+            <div class="dash-lbl">Experts / Needs Improvement</div>
+            <div class="dash-val" style="color: #475569;">${expertCount} Exp. / ${improvementCount} NI</div>
+        </div>
+    </div>
+
+    <div class="section-title">9-Box Calibration Assessment</div>
+    <div class="placement-banner">
+        <strong>Assessed Calibration Profile:</strong> ${classification.title} (${classification.desc})<br/>
+        <span style="font-size: 12px; color:#475569;">Assessed intersection: Potential: <strong>${pot}</strong> / Performance: <strong>${perf}</strong></span>
+    </div>
+
+    <div class="nine-box-container">
+        <!-- R1: High Potential -->
+        <div class="box-cell ${getBoxHighlight('High', 'Low')}">Enigma<br/><span style="font-size:8px;">High Pot / Low Perf</span></div>
+        <div class="box-cell ${getBoxHighlight('High', 'Medium')}">Growth Employee<br/><span style="font-size:8px;">High Pot / Med Perf</span></div>
+        <div class="box-cell ${getBoxHighlight('High', 'High')}">Future Leader<br/><span style="font-size:8px;">High Pot / High Perf</span></div>
+
+        <!-- R2: Med Potential -->
+        <div class="box-cell ${getBoxHighlight('Medium', 'Low')}">Dilemma<br/><span style="font-size:8px;">Med Pot / Low Perf</span></div>
+        <div class="box-cell ${getBoxHighlight('Medium', 'Medium')}">Core Employee<br/><span style="font-size:8px;">Med Pot / Med Perf</span></div>
+        <div class="box-cell ${getBoxHighlight('Medium', 'High')}">High Impact<br/><span style="font-size:8px;">Med Pot / High Perf</span></div>
+
+        <!-- R3: Low Potential -->
+        <div class="box-cell ${getBoxHighlight('Low', 'Low')}">Underperformer<br/><span style="font-size:8px;">Low Pot / Low Perf</span></div>
+        <div class="box-cell ${getBoxHighlight('Low', 'Medium')}">Effective<br/><span style="font-size:8px;">Low Pot / Med Perf</span></div>
+        <div class="box-cell ${getBoxHighlight('Low', 'High')}">Trusted Prof.<br/><span style="font-size:8px;">Low Pot / High Perf</span></div>
+    </div>
+
+    <div class="section-title">Core KPI & Competency Assessment</div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width:30%;">Key Focus Domain</th>
+                <th style="width:20%;">Rating</th>
+                <th>Domain Specific Comments & Observations</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${skillsMarkup}
+        </tbody>
+    </table>
+
+    <div class="section-title">Detailed Performance Feedback</div>
+    <div class="notes-block">${document.getElementById('performanceComments').value || 'No custom performance evaluation comments recorded.'}</div>
+
+    <div class="section-title">Development Path & Actions</div>
+    <div class="notes-block">${document.getElementById('suggestions').value || 'No development steps or support paths proposed.'}</div>
+
+    <p style="text-align: center; margin-top: 40px; font-size: 11px; color:#94a3b8;" class="no-print">
+        Generated electronically from workspace on ${new Date().toLocaleDateString()}. Use browser printing parameters (Ctrl+P) to print or export as PDF.
+    </p>
+</body>
+</html>`;
+
+        const blob = new Blob([reportTemplate], { type: 'text/html' });
+        const reportUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = reportUrl;
+        downloadLink.download = `People_Review_Report_${name.replace(/\s+/g, '_')}.html`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+</script>
+</body>
+</html>
