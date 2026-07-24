@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>People Meeting Review & Talent Grid</title>
+<style>
+:root { --primary: #2563eb; --bg: #f8fafc; --card: #fff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 1rem; }
+.container { max-width: 850px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border); gap: 1rem; }
+h1 { font-size: 1.5rem; color: var(--primary); }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+h2 { font-size: 1.1rem; margin-bottom: 1rem; border-left: 4px solid var(--primary); padding-left: 0.5rem; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.form-group { margin-bottom: 0.8rem; display: flex; flex-direction: column; }
+label { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+input, select, textarea { padding: 0.55rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; width: 100%; background: #fff; }
+.nine-box-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 1rem; }
+.nine-box-cell { position: relative; border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; text-align: center; font-size: 0.75rem; font-weight: 600; background: #f1f5f9; cursor: pointer; min-height: 70px; display: flex; flex-direction: column; justify-content: center; }
+.nine-box-cell small { font-size: 0.65rem; color: var(--muted); font-weight: normal; }
+.nine-box-cell.selected { background: var(--primary) !important; color: #fff !important; }
+.nine-box-cell.selected small { color: #bfdbfe; }
+.nine-box-cell .tooltip-text { visibility: hidden; width: 200px; background: #0f172a; color: #fff; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 110%; left: 50%; transform: translateX(-50%); opacity: 0; transition: 0.2s; font-size: 0.7rem; text-align: left; pointer-events: none; }
+.nine-box-cell:hover .tooltip-text { visibility: visible; opacity: 1; }
+.skills-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
+.skills-table th, .skills-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); text-align: left; }
+.skills-table th { background: #f1f5f9; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+.btn { padding: 0.6rem 1.2rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+.btn-primary { background: var(--primary); color: #fff; flex-grow: 2; }
+.btn-sec { background: #e2e8f0; color: var(--text); }
+.file-wrapper { position: relative; overflow: hidden; }
+.file-wrapper input { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%; }
+@media(max-width: 600px) { .nine-box-picker { grid-template-columns: 1fr; } .nine-box-cell .tooltip-text { display: none; } }
+</style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div><h1>People Meeting Review</h1><p style="color:var(--muted); font-size:0.85rem;">Offline Talent Assessment Tool</p></div>
+        <div class="btn-group">
+            <div class="file-wrapper"><button class="btn btn-sec" type="button">Upload JSON</button><input type="file" accept=".json" onchange="importData(this)"></div>
+            <button class="btn btn-sec" type="button" onclick="exportData()">Save JSON</button>
+        </div>
+    </header>
+    <form id="reviewForm" onsubmit="event.preventDefault();">
+        <div class="card">
+            <h2>1. Administrative Details</h2>
+            <div class="grid-2">
+                <div class="form-group"><label>Employee Name</label><input type="text" id="employeeName" placeholder="Jane Doe" required></div>
+                <div class="form-group"><label>Job Title</label><input type="text" id="jobTitle" placeholder="Systems Analyst" required></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Grade / Level</label><input type="text" id="grade" placeholder="L5"></div>
+                <div class="form-group"><label>Time in Position</label><input type="text" id="timeInPos" placeholder="18 months"></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Review Date</label><input type="date" id="reviewDate" required></div>
+                <div class="form-group"><label>Reviewing Manager</label><input type="text" id="managerName" placeholder="Sarah Smith" required></div>
+            </div>
+            <div class="form-group"><label>People in Attendance</label><input type="text" id="attendance" placeholder="HRBP, Director"></div>
+        </div>
+
+        <div class="card">
+            <h2>2. Nine-Box Talent Placement</h2>
+            <div class="grid-2">
+                <div class="form-group"><label>Potential</label><select id="potential" onchange="syncNineBox()"><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
+                <div class="form-group"><label>Performance</label><select id="performance" onchange="syncNineBox()"><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
+            </div>
+            <div class="nine-box-picker" id="nineBoxVisual">
+                <div class="nine-box-cell" data-pot="High" data-perf="Low" onclick="selectCell('High','Low')">Enigma<small>High Pot / Low Perf</small><span class="tooltip-text"><strong>Enigma:</strong> High potential, underperforming. Needs root cause review.</span></div>
+                <div class="nine-box-cell" data-pot="High" data-perf="Medium" onclick="selectCell('High','Medium')">Growth Employee<small>High Pot / Med Perf</small><span class="tooltip-text"><strong>Growth:</strong> High potential, consistent performance. Stretch targets needed.</span></div>
+                <div class="nine-box-cell" data-pot="High" data-perf="High" onclick="selectCell('High','High')">Future Leader<small>High Pot / High Perf</small><span class="tooltip-text"><strong>Future Leader:</strong> Top talent ready for promotion pathways.</span></div>
+                <div class="nine-box-cell" data-pot="Medium" data-perf="Low" onclick="selectCell('Medium','Low')">Dilemma<small>Med Pot / Low Perf</small><span class="tooltip-text"><strong>Dilemma:</strong> Needs skills coaching or PIP plan.</span></div>
+                <div class="nine-box-cell" data-pot="Medium" data-perf="Medium" onclick="selectCell('Medium','Medium')">Core Employee<small>Med Pot / Med Perf</small><span class="tooltip-text"><strong>Core:</strong> Steady performer and reliable asset.</span></div>
+                <div class="nine-box-cell" data-pot="Medium" data-perf="High" onclick="selectCell('Medium','High')">High Impact<small>Med Pot / High Perf</small><span class="tooltip-text"><strong>High Impact:</strong> Strong output, support into leadership track.</span></div>
+                <div class="nine-box-cell" data-pot="Low" data-perf="Low" onclick="selectCell('Low','Low')">Underperformer<small>Low Pot / Low Perf</small><span class="tooltip-text"><strong>Underperformer:</strong> Reassess role alignment immediately.</span></div>
+                <div class="nine-box-cell" data-pot="Low" data-perf="Medium" onclick="selectCell('Low','Medium')">Effective<small>Low Pot / Med Perf</small><span class="tooltip-text"><strong>Effective:</strong> Solid functional operational stability.</span></div>
+                <div class="nine-box-cell" data-pot="Low" data-perf="High" onclick="selectCell('Low','High')">Trusted Professional<small>Low Pot / High Perf</small><span class="tooltip-text"><strong>Trusted Prof:</strong> Subject matter expert. Retain & value.</span></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>3. KPI Skills Assessment</h2>
+            <table class="skills-table">
+                <thead><tr><th>Domain</th><th>Grade</th><th>Comments</th></tr></thead>
+                <tbody id="skillsBody">
+                    <tr><td>Technical Execution</td><td><select class="s-grade" data-skill="Technical Execution"><option>Needs Improvement</option><option selected>Competent</option><option>Expert</option></select></td><td><input type="text" class="s-comment" placeholder="Notes..."></td></tr>
+                    <tr><td>Communication</td><td><select class="s-grade" data-skill="Communication"><option>Needs Improvement</option><option selected>Competent</option><option>Expert</option></select></td><td><input type="text" class="s-comment" placeholder="Notes..."></td></tr>
+                    <tr><td>Problem Solving</td><td><select class="s-grade" data-skill="Problem Solving"><option>Needs Improvement</option><option selected>Competent</option><option>Expert</option></select></td><td><input type="text" class="s-comment" placeholder="Notes..."></td></tr>
+                    <tr><td>Leadership</td><td><select class="s-grade" data-skill="Leadership"><option selected>Needs Improvement</option><option>Competent</option><option>Expert</option></select></td><td><input type="text" class="s-comment" placeholder="Notes..."></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>4. Assessment Notes</h2>
+            <div class="form-group"><label>Performance Comments</label><textarea id="performanceComments" rows="3"></textarea></div>
+            <div class="form-group"><label>Development Suggestions</label><textarea id="suggestions" rows="3"></textarea></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%; margin-bottom: 2rem;" type="button" onclick="generateReport()">Generate & Download HTML Report</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('reviewDate').valueAsDate = new Date();
+const gridMap = {
+    'High-Low':['Enigma','High Pot / Low Perf'], 'High-Medium':['Growth Employee','High Pot / Med Perf'], 'High-High':['Future Leader','High Pot / High Perf'],
+    'Medium-Low':['Dilemma','Med Pot / Low Perf'], 'Medium-Medium':['Core Employee','Med Pot / Med Perf'], 'Medium-High':['High Impact','Med Pot / High Perf'],
+    'Low-Low':['Underperformer','Low Pot / Low Perf'], 'Low-Medium':['Effective','Low Pot / Med Perf'], 'Low-High':['Trusted Professional','Low Pot / High Perf']
+};
+
+function syncNineBox() {
+    const pot = document.getElementById('potential').value, perf = document.getElementById('performance').value;
+    document.querySelectorAll('.nine-box-cell').forEach(c => c.classList.remove('selected'));
+    const active = document.querySelector(`.nine-box-cell[data-pot="${pot}"][data-perf="${perf}"]`);
+    if(active) active.classList.add('selected');
+}
+function selectCell(pot, perf) { document.getElementById('potential').value = pot; document.getElementById('performance').value = perf; syncNineBox(); }
+syncNineBox();
+
+function exportData() {
+    const skills = [];
+    document.querySelectorAll('#skillsBody tr').forEach(r => {
+        skills.push({ skill: r.querySelector('.s-grade').dataset.skill, grade: r.querySelector('.s-grade').value, comment: r.querySelector('.s-comment').value });
+    });
+    const data = { name: document.getElementById('employeeName').value, title: document.getElementById('jobTitle').value, grade: document.getElementById('grade').value, timePos: document.getElementById('timeInPos').value, date: document.getElementById('reviewDate').value, mgr: document.getElementById('managerName').value, attend: document.getElementById('attendance').value, pot: document.getElementById('potential').value, perf: document.getElementById('performance').value, skills, comments: document.getElementById('performanceComments').value, suggestions: document.getElementById('suggestions').value };
+    const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2)); a.download = `review_${data.name || 'draft'}.json`; a.click();
+}
+
+function importData(input) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        const d = JSON.parse(e.target.result);
+        if(d.name) document.getElementById('employeeName').value = d.name;
+        if(d.title) document.getElementById('jobTitle').value = d.title;
+        if(d.grade) document.getElementById('grade').value = d.grade;
+        if(d.timePos) document.getElementById('timeInPos').value = d.timePos;
+        if(d.date) document.getElementById('reviewDate').value = d.date;
+        if(d.mgr) document.getElementById('managerName').value = d.mgr;
+        if(d.attend) document.getElementById('attendance').value = d.attend;
+        if(d.pot) document.getElementById('potential').value = d.pot;
+        if(d.perf) document.getElementById('performance').value = d.perf;
+        if(d.comments) document.getElementById('performanceComments').value = d.comments;
+        if(d.suggestions) document.getElementById('suggestions').value = d.suggestions;
+        if(d.skills) d.skills.forEach(s => {
+            const g = document.querySelector(`.s-grade[data-skill="${s.skill}"]`), c = document.querySelector(`.s-comment[data-skill="${s.skill}"]`);
+            if(g) g.value = s.grade; if(c) c.value = s.comment;
+        });
+        syncNineBox();
+    };
+    reader.readAsText(input.files[0]);
+}
+
+function generateReport() {
+    const name = document.getElementById('employeeName').value || 'Employee', pot = document.getElementById('potential').value, perf = document.getElementById('performance').value;
+    const placement = gridMap[`${pot}-${perf}`] || ['N/A','N/A'];
+    let skillRows = '', exp = 0, comp = 0, ni = 0;
+    document.querySelectorAll('#skillsBody tr').forEach(r => {
+        const name = r.cells[0].innerText, g = r.querySelector('.s-grade').value, c = r.querySelector('.s-comment').value || 'N/A';
+        if(g==='Expert') exp++; else if(g==='Needs Improvement') ni++; else comp++;
+        skillRows += `<tr><td><strong>${name}</strong></td><td>${g}</td><td>${c}</td></tr>`;
+    });
+
+    const getH = (p, pf) => (p===pot && pf===perf) ? 'background:#2563eb;color:#fff;opacity:1;' : 'opacity:0.35;background:#f1f5f9;';
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Report - ${name}</title><style>body{font-family:sans-serif;padding:20px;color:#0f172a;} .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:#f8fafc;padding:12px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:20px;} .dash{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;} .card{border:1px solid #e2e8f0;padding:10px;text-align:center;border-radius:6px;} .boxes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:500px;margin-bottom:20px;} .box{border:1px solid #cbd5e1;padding:10px;text-align:center;font-size:10px;font-weight:bold;border-radius:4px;} table{width:100%;border-collapse:collapse;margin-bottom:20px;} th,td{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left;font-size:12px;} th{background:#f1f5f9;}</style></head><body>
+    <h2>People Review Report: ${name}</h2>
+    <div class="grid"><div><strong>Job Title:</strong> ${document.getElementById('jobTitle').value}</div><div><strong>Grade:</strong> ${document.getElementById('grade').value}</div><div><strong>Time in Pos:</strong> ${document.getElementById('timeInPos').value}</div><div><strong>Date:</strong> ${document.getElementById('reviewDate').value}</div><div><strong>Manager:</strong> ${document.getElementById('managerName').value}</div><div><strong>Attendance:</strong> ${document.getElementById('attendance').value}</div></div>
+    <div class="dash"><div class="card"><small>Placement</small><br><strong>${placement[0]}</strong></div><div class="card"><small>Competency Health</small><br><strong>${exp} Exp / ${comp} Comp / ${ni} NI</strong></div><div class="card"><small>Potential / Perf</small><br><strong>${pot} / ${perf}</strong></div></div>
+    <h3>9-Box Grid Placement</h3>
+    <div class="boxes">
+        <div class="box" style="${getH('High','Low')}">Enigma</div><div class="box" style="${getH('High','Medium')}">Growth</div><div class="box" style="${getH('High','High')}">Future Leader</div>
+        <div class="box" style="${getH('Medium','Low')}">Dilemma</div><div class="box" style="${getH('Medium','Medium')}">Core</div><div class="box" style="${getH('Medium','High')}">High Impact</div>
+        <div class="box" style="${getH('Low','Low')}">Underperformer</div><div class="box" style="${getH('Low','Medium')}">Effective</div><div class="box" style="${getH('Low','High')}">Trusted Prof</div>
+    </div>
+    <h3>KPI Skills</h3><table><thead><tr><th>Skill</th><th>Grade</th><th>Comments</th></tr></thead><tbody>${skillRows}</tbody></table>
+    <h3>Comments</h3><p style="background:#f8fafc;padding:10px;border:1px solid #e2e8f0;border-radius:4px;">${document.getElementById('performanceComments').value || 'None'}</p>
+    <h3>Development Suggestions</h3><p style="background:#f8fafc;padding:10px;border:1px solid #e2e8f0;border-radius:4px;">${document.getElementById('suggestions').value || 'None'}</p>
+    </body></html>`;
+
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], {type:'text/html'})); a.download = `Report_${name}.html`; a.click();
+}
+</script>
+</body>
+</html>
