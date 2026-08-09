@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Maintenance Dashboard</title>
+
+  <!-- DataTables & RowGroup CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.0/css/rowGroup.dataTables.min.css">
+
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background: #f8f9fa; color: #333; }
+    h1 { margin-bottom: 20px; }
+
+    /* Control Panel */
+    .control-panel { background: #ffffff; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; }
+    .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-label { font-weight: 600; font-size: 0.85rem; text-transform: uppercase; color: #6c757d; margin-right: 5px; }
+    
+    .btn-filter { padding: 6px 12px; border: 1px solid #ced4da; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s ease; user-select: none; }
+    .btn-filter:hover { background: #e9ecef; }
+    .btn-filter.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+    .btn-action { background: #f8f9fa; border: 1px solid #6c757d; }
+    .btn-reset { background: #dc3545; color: white; border-color: #dc3545; }
+    .btn-reset:hover { background: #bb2d3b; }
+
+    /* Table Styles */
+    table.dataTable { border-collapse: collapse !important; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    
+    /* Collapsible Group Header Row */
+    tr.group-header { background-color: #e2e8f0 !important; font-weight: bold; cursor: pointer; transition: background 0.15s ease; }
+    tr.group-header:hover { background-color: #cbd5e1 !important; }
+    .group-toggle-icon { display: inline-block; width: 14px; text-align: center; margin-right: 6px; font-size: 0.8rem; }
+    .group-summary-stats { font-weight: normal; font-size: 0.8rem; margin-left: 15px; }
+    
+    /* Badges */
+    .badge { padding: 3px 7px; border-radius: 4px; font-weight: bold; font-size: 0.72rem; text-transform: uppercase; display: inline-block; margin-right: 4px; }
+    .badge-overdue { background-color: #f8d7da; color: #842029; }
+    .badge-due-soon { background-color: #fff3cd; color: #664d03; }
+    .badge-ok { background-color: #d1e7dd; color: #0f5132; }
+
+    /* Modal */
+    dialog { border: none; border-radius: 8px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-width: 500px; width: 90%; }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    .modal-actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+
+  <h1>Plant Maintenance Dashboard</h1>
+
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <!-- Multi-Select Plant Filter -->
+    <div class="filter-group">
+      <span class="filter-label">Plants (Multi-Select):</span>
+      <button class="btn-filter plant-btn active" data-plant="all">All</button>
+      <button class="btn-filter plant-btn" data-plant="Plant Alpha">Plant Alpha</button>
+      <button class="btn-filter plant-btn" data-plant="Plant Beta">Plant Beta</button>
+      <button class="btn-filter plant-btn" data-plant="Plant Gamma">Plant Gamma</button>
+    </div>
+
+    <!-- Urgency Filter -->
+    <div class="filter-group">
+      <span class="filter-label">Status:</span>
+      <button class="btn-filter urgency-btn active" data-urgency="all">All</button>
+      <button class="btn-filter urgency-btn" data-urgency="overdue">Overdue</button>
+      <button class="btn-filter urgency-btn" data-urgency="due-soon">Due Soon (&le;30d)</button>
+      <button class="btn-filter urgency-btn" data-urgency="on-schedule">On Schedule</button>
+    </div>
+
+    <!-- Tree Controls & Reset -->
+    <div class="filter-group">
+      <button class="btn-filter btn-action" id="expandAll">📂 Expand All Groups</button>
+      <button class="btn-filter btn-action" id="collapseAll">📁 Collapse All Groups</button>
+      <button class="btn-filter btn-reset" id="resetAll">🔄 Reset Filters</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table id="maintenanceTable" class="display" style="width:100%">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>System</th>
+        <th>Plant</th>
+        <th>Equipment / Item</th>
+        <th>Frequency</th>
+        <th>Last Date</th>
+        <th>Next Due Date</th>
+        <th>Days Left</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Days Left (Col 7) and Status Badge (Col 0) are now procedurally generated from Next Due Date (Col 6) -->
+      <tr><td></td><td>HVAC Systems</td><td>Plant Alpha</td><td>Air Handler AHU-01</td><td>Quarterly</td><td>2026-02-01</td><td>2026-05-01</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+      <tr><td></td><td>HVAC Systems</td><td>Plant Beta</td><td>Chiller CH-02</td><td>Annual</td><td>2025-08-15</td><td>2026-08-15</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+      <tr><td></td><td>Electrical</td><td>Plant Alpha</td><td>Main Switchgear SG-01</td><td>Annual</td><td>2025-09-01</td><td>2026-09-01</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+      <tr><td></td><td>Electrical</td><td>Plant Gamma</td><td>Transformer TR-03</td><td>Semi-Annual</td><td>2026-01-10</td><td>2026-07-10</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+      <tr><td></td><td>Pumping Station</td><td>Plant Beta</td><td>Water Pump P-101</td><td>Monthly</td><td>2026-07-01</td><td>2026-08-01</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+      <tr><td></td><td>Pumping Station</td><td>Plant Alpha</td><td>Slurry Pump P-102</td><td>Monthly</td><td>2026-07-25</td><td>2026-08-25</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+      <tr><td></td><td>Pumping Station</td><td>Plant Gamma</td><td>Booster Pump P-103</td><td>Quarterly</td><td>2026-03-01</td><td>2026-11-01</td><td></td><td><button class="btn-info">ℹ Details</button></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Item Details Modal -->
+  <dialog id="rowModal">
+    <h3 id="modalTitle">Equipment Details</h3>
+    <p><strong>Plant:</strong> <span id="modalPlant"></span></p>
+    <p><strong>System:</strong> <span id="modalSystem"></span></p>
+    <p><strong>Next Due Date:</strong> <span id="modalDue"></span></p>
+    <div class="modal-actions">
+      <a id="modalMailto" href="#" class="btn-filter btn-action" style="text-decoration:none;">✉️ Request Update</a>
+      <button id="closeModal" class="btn-filter">Close</button>
+    </div>
+  </dialog>
+
+  <!-- JS Dependencies -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/rowgroup/1.4.0/js/dataTables.rowGroup.min.js"></script>
+
+  <script>
+    let table;
+    let activePlants = ['all'];
+    let activeUrgency = 'all';
+
+    // -------------------------------------------------------------
+    // Helper: Calculate Days Left Procedurally from YYYY-MM-DD
+    // -------------------------------------------------------------
+    function getDaysLeft(dateStr) {
+      if (!dateStr) return 0;
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return 0;
+
+      // Local midnight for target due date
+      const dueDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+      // Local midnight for today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const diffTime = dueDate - today;
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    // -------------------------------------------------------------
+    // 1. URL State Management
+    // -------------------------------------------------------------
+    function readUrlParameters() {
+      const params = new URLSearchParams(window.location.search);
+      
+      const plantParam = params.get('plant');
+      activePlants = plantParam ? plantParam.split(',') : ['all'];
+      activeUrgency = params.get('urgency') || 'all';
+      const searchQuery = params.get('q') || '';
+
+      $('.plant-btn').removeClass('active');
+      if (activePlants.includes('all')) {
+        $('[data-plant="all"]').addClass('active');
+      } else {
+        activePlants.forEach(plant => {
+          $(`.plant-btn[data-plant="${CSS.escape(plant)}"]`).addClass('active');
+        });
+      }
+
+      $('.urgency-btn').removeClass('active');
+      $(`.urgency-btn[data-urgency="${CSS.escape(activeUrgency)}"]`).addClass('active');
+
+      if (searchQuery && table) {
+        table.search(searchQuery);
+      }
+    }
+
+    function syncStateToUrl() {
+      const params = new URLSearchParams();
+
+      if (!activePlants.includes('all') && activePlants.length > 0) {
+        params.set('plant', activePlants.join(','));
+      }
+      if (activeUrgency && activeUrgency !== 'all') {
+        params.set('urgency', activeUrgency);
+      }
+
+      const searchVal = table ? table.search() : '';
+      if (searchVal) params.set('q', searchVal);
+
+      const queryString = params.toString();
+      const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    // -------------------------------------------------------------
+    // 2. Custom DataTables Filtering Plugin
+    // -------------------------------------------------------------
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+      const plantColumn = data[2].trim(); // Clean plain text string
+      const daysLeft = getDaysLeft(data[6]); // Procedural days left from Col 6 (Next Due Date)
+
+      // Multi-Select Plant Filter Check
+      if (!activePlants.includes('all') && !activePlants.includes(plantColumn)) {
+        return false;
+      }
+
+      // Urgency Filter Check
+      if (activeUrgency === 'overdue' && daysLeft >= 0) return false;
+      if (activeUrgency === 'due-soon' && (daysLeft < 0 || daysLeft > 30)) return false;
+      if (activeUrgency === 'on-schedule' && daysLeft <= 30) return false;
+
+      return true;
+    });
+
+    // -------------------------------------------------------------
+    // 3. Document Initialization
+    // -------------------------------------------------------------
+    $(document).ready(function () {
+      
+      table = $('#maintenanceTable').DataTable({
+        pageLength: 25,
+        order: [[1, 'asc']], // Order by System
+        rowGroup: {
+          dataSrc: 1, // Group by System column
+          startRender: function (rows, group) {
+            const total = rows.count();
+            let overdueCount = 0;
+            let dueSoonCount = 0;
+            let okCount = 0;
+
+            // Compute counts dynamically using procedural date math
+            rows.data().each(function (rowData) {
+              const daysLeft = getDaysLeft(rowData[6]);
+              if (daysLeft < 0) overdueCount++;
+              else if (daysLeft <= 30) dueSoonCount++;
+              else okCount++;
+            });
+
+            return $('<tr class="group-header">')
+              .append(`
+                <td colspan="9">
+                  <span class="group-toggle-icon">▼</span>
+                  <span>${group}</span>
+                  <span class="group-summary-stats">
+                    (${total} Items &mdash; 
+                    <span class="badge badge-overdue">${overdueCount} Overdue</span>
+                    <span class="badge badge-due-soon">${dueSoonCount} Due Soon</span>
+                    <span class="badge badge-ok">${okCount} On Schedule</span>)
+                  </span>
+                </td>
+              `);
+          }
+        },
+        columnDefs: [
+          {
+            // Dynamic Status Badge Rendering (Col 0)
+            targets: 0,
+            render: function (data, type, row) {
+              const daysLeft = getDaysLeft(row[6]);
+              if (type === 'sort' || type === 'type') return daysLeft;
+
+              if (daysLeft < 0) return `<span class="badge badge-overdue">OVERDUE (${Math.abs(daysLeft)}d)</span>`;
+              if (daysLeft <= 30) return `<span class="badge badge-due-soon">DUE SOON (${daysLeft}d)</span>`;
+              return `<span class="badge badge-ok">OK (${daysLeft}d)</span>`;
+            }
+          },
+          {
+            // Plant Column (Col 2) - Kept clean plain text for rock-solid filtering
+            targets: 2,
+            render: function (data) {
+              return data;
+            }
+          },
+          {
+            // Procedural Days Left Column Rendering (Col 7)
+            targets: 7,
+            render: function (data, type, row) {
+              const daysLeft = getDaysLeft(row[6]);
+              if (type === 'sort' || type === 'type') return daysLeft;
+              return daysLeft;
+            }
+          }
+        ]
+      });
+
+      // Load initial state from URL
+      readUrlParameters();
+      table.draw();
+
+      // -------------------------------------------------------------
+      // 4. Interactive Event Handlers
+      // -------------------------------------------------------------
+
+      // A. Group Header Click to Toggle Sibling Rows
+      $('#maintenanceTable tbody').on('click', 'tr.group-header', function () {
+        const $icon = $(this).find('.group-toggle-icon');
+        const isCollapsed = $(this).hasClass('collapsed');
+
+        $(this).nextUntil('tr.group-header').toggle(isCollapsed);
+
+        if (isCollapsed) {
+          $(this).removeClass('collapsed');
+          $icon.text('▼');
+        } else {
+          $(this).addClass('collapsed');
+          $icon.text('►');
+        }
+      });
+
+      // B. Expand / Collapse All Global Buttons
+      $('#expandAll').on('click', function () {
+        $('#maintenanceTable tbody tr').show();
+        $('#maintenanceTable tbody tr.group-header').removeClass('collapsed').find('.group-toggle-icon').text('▼');
+      });
+
+      $('#collapseAll').on('click', function () {
+        $('#maintenanceTable tbody tr').not('.group-header').hide();
+        $('#maintenanceTable tbody tr.group-header').addClass('collapsed').find('.group-toggle-icon').text('►');
+      });
+
+      // C. Multi-Select Plant Filtering
+      $('.plant-btn').on('click', function () {
+        const selectedPlant = $(this).data('plant');
+
+        if (selectedPlant === 'all') {
+          activePlants = ['all'];
+          $('.plant-btn').removeClass('active');
+          $('[data-plant="all"]').addClass('active');
+        } else {
+          activePlants = activePlants.filter(p => p !== 'all');
+          $('[data-plant="all"]').removeClass('active');
+
+          if ($(this).hasClass('active')) {
+            $(this).removeClass('active');
+            activePlants = activePlants.filter(p => p !== selectedPlant);
+          } else {
+            $(this).addClass('active');
+            activePlants.push(selectedPlant);
+          }
+
+          if (activePlants.length === 0) {
+            activePlants = ['all'];
+            $('[data-plant="all"]').addClass('active');
+          }
+        }
+
+        table.draw();
+        syncStateToUrl();
+      });
+
+      // D. Urgency Filter
+      $('.urgency-btn').on('click', function () {
+        $('.urgency-btn').removeClass('active');
+        $(this).addClass('active');
+        activeUrgency = $(this).data('urgency');
+        table.draw();
+        syncStateToUrl();
+      });
+
+      // E. Sync search input to URL
+      table.on('search.dt', function () {
+        syncStateToUrl();
+      });
+
+      // F. Reset All
+      $('#resetAll').on('click', function () {
+        activePlants = ['all'];
+        activeUrgency = 'all';
+        $('.plant-btn, .urgency-btn').removeClass('active');
+        $('[data-plant="all"], [data-urgency="all"]').addClass('active');
+        table.search('').draw();
+        syncStateToUrl();
+      });
+
+      // G. Details Modal
+      $('#maintenanceTable').on('click', '.btn-info', function () {
+        const rowData = table.row($(this).parents('tr')).data();
+        
+        $('#modalTitle').text(rowData[3]);
+        $('#modalSystem').text(rowData[1]);
+        $('#modalPlant').text(rowData[2]);
+        $('#modalDue').text(rowData[6]);
+
+        const mailto = `mailto:maintenance@company.com?subject=${encodeURIComponent('[Update Request] ' + rowData[3])}&body=${encodeURIComponent('Please update status for ' + rowData[3] + ' at ' + rowData[2])}`;
+        $('#modalMailto').attr('href', mailto);
+
+        document.getElementById('rowModal').showModal();
+      });
+
+      $('#closeModal').on('click', function () {
+        document.getElementById('rowModal').close();
+      });
+    });
+  </script>
+</body>
+</html>
