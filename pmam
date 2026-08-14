@@ -44,16 +44,45 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 1rem;
+        }
+
+        .header-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 0;
         }
 
         header h1 {
             font-size: 1.15rem;
             font-weight: 600;
+            white-space: nowrap;
         }
 
-        header p {
-            font-size: 0.75rem;
-            opacity: 0.85;
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .header-date-label {
+            font-size: 0.68rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        #header-selected-date {
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            padding: 0.2rem 0.6rem;
         }
 
         footer {
@@ -462,9 +491,12 @@
 <body>
 
     <header>
-        <div>
+        <div class="header-title-wrap">
             <h1>PMAP Assessment Portal</h1>
-            <p>Performance Management & Assessment Process</p>
+        </div>
+        <div class="header-meta">
+            <span class="header-date-label">Selected Month</span>
+            <strong id="header-selected-date">-</strong>
         </div>
     </header>
 
@@ -712,6 +744,13 @@
             return { total, percentage };
         }
 
+        function updateHeaderDate() {
+            const headerDate = document.getElementById('header-selected-date');
+            if (headerDate) {
+                headerDate.textContent = currentMonthYear || '-';
+            }
+        }
+
         function populateMonthDropdown() {
             const select = document.getElementById('month-select');
             select.innerHTML = '';
@@ -726,6 +765,7 @@
             });
 
             select.value = currentMonthYear;
+            updateHeaderDate();
         }
 
         function createNewMonth() {
@@ -796,6 +836,7 @@
                 document.getElementById(`kpi-conc-${idx}`).value = item.concern || "";
             });
 
+            updateHeaderDate();
             calculateScores();
         }
 
@@ -873,6 +914,8 @@
             const entry = pmapData[selectedIndex];
             if (!entry) return;
 
+            currentMonthYear = entry.monthyear;
+            updateHeaderDate();
             document.getElementById('slider-month-display').innerText = entry.monthyear;
 
             const total = entry.kpis.reduce((acc, k) => acc + k.score, 0);
@@ -1071,8 +1114,12 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
         header { position: sticky; top: 0; z-index: 1000; background-color: var(--primary); color: white; padding: 0.6rem 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.12); }
-        header h1 { font-size: 1.15rem; font-weight: 600; }
-        header p { font-size: 0.75rem; opacity: 0.85; }
+        header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+        .header-title-wrap { display: flex; align-items: center; gap: 0.75rem; }
+        header h1 { font-size: 1.15rem; font-weight: 600; white-space: nowrap; }
+        .header-meta { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; text-align: right; white-space: nowrap; }
+        .header-date-label { font-size: 0.68rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.06em; }
+        #header-selected-date { font-size: 0.9rem; font-weight: 700; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 0.2rem 0.6rem; }
         footer { background-color: #0f172a; color: #94a3b8; text-align: center; padding: 0.75rem; margin-top: auto; font-size: 0.8rem; }
         main { max-width: 1200px; width: 100%; margin: 1rem auto; padding: 0 1rem; }
         .card { background: var(--card-bg); border-radius: 6px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--border); }
@@ -1115,9 +1162,12 @@
 </head>
 <body>
     <header>
-        <div>
+        <div class="header-title-wrap">
             <h1>PMAP Supplier Performance Report</h1>
-            <p>Official Evaluation & Performance Metrics</p>
+        </div>
+        <div class="header-meta">
+            <span class="header-date-label">Selected Month</span>
+            <strong id="header-selected-date">${escapeHTML(currentMonthYear || pmapData[pmapData.length - 1]?.monthyear || '-')}</strong>
         </div>
     </header>
     <main>
@@ -1236,7 +1286,9 @@
         function updateReportView(selectedIndex) {
             const entry = pmapData[selectedIndex];
             if (!entry) return;
-            document.getElementById('slider-month-display').innerText = entry.monthyear;
+            const selectedMonth = entry.monthyear;
+            document.getElementById('header-selected-date').innerText = selectedMonth;
+            document.getElementById('slider-month-display').innerText = selectedMonth;
 
             const total = entry.kpis.reduce((acc, k) => acc + k.score, 0);
             let pct = ((total - 7) / 28) * 100;
