@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Department Operations Dashboard</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --card-hover: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-green: #4ade80;
+      --accent-orange: #fb923c;
+      --accent-pink: #f472b6;
+      --accent-yellow: #facc15;
+      --nav-bg: rgba(15, 23, 42, 0.85);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* --- Parallax Hero Header --- */
+    .hero {
+      position: relative;
+      height: 50vh;
+      min-height: 350px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 120%;
+      background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.15), transparent 60%),
+                  linear-gradient(135deg, #0b1329 0%, #1e1b4b 100%);
+      z-index: -1;
+      will-change: transform;
+    }
+
+    .hero-content h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(to right, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-content p {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* --- Sticky Navigation --- */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--nav-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      padding: 1rem;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s, border-bottom 0.3s;
+      padding-bottom: 0.25rem;
+    }
+
+    nav a:hover, nav a.active {
+      color: var(--accent-blue);
+      border-bottom: 2px solid var(--accent-blue);
+    }
+
+    /* --- Layout Container --- */
+    .section-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+
+    .section-title {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      position: relative;
+      display: inline-block;
+    }
+
+    .section-title::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -6px;
+      width: 50%;
+      height: 4px;
+      background: var(--accent-blue);
+      border-radius: 2px;
+    }
+
+    .section-subtitle {
+      color: var(--text-muted);
+      margin-bottom: 2.5rem;
+    }
+
+    /* --- SECTION 1: Team Structure --- */
+    .sub-team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 2rem;
+    }
+
+    .sub-team-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s, background-color 0.3s;
+    }
+
+    .sub-team-card:hover {
+      transform: translateY(-5px);
+      background: var(--card-hover);
+    }
+
+    .team-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .team-name {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .team-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .leader-box {
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 3px solid var(--accent-blue);
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .leader-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .member-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .member-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      font-size: 0.95rem;
+    }
+
+    .member-role {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* --- SECTION 2: Skills Matrix (Qualitative) --- */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+    }
+
+    .skill-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .skill-card h3 {
+      margin-bottom: 1.25rem;
+    }
+
+    .skill-row {
+      margin-bottom: 1.2rem;
+    }
+
+    .skill-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .level-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    /* Badge Color Levels */
+    .level-none { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+    .level-little { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+    .level-competent { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .level-expert { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+
+    /* Qualitative 4-Segment Bar */
+    .qualitative-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      height: 8px;
+    }
+
+    .bar-segment {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+    }
+
+    .bar-segment.filled {
+      border-radius: 2px;
+    }
+
+    /* --- SECTION 3: Floor Plate Map (PNG Image Overlay) --- */
+    .map-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5);
+      background: #0b1329;
+    }
+
+    .floor-plan-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+
+    .map-pin {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 10;
+    }
+
+    .map-pin::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 1; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+
+    .map-pin:hover {
+      transform: translate(-50%, -50%) scale(1.4);
+      z-index: 20;
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: rgba(15, 23, 42, 0.95);
+      color: #fff;
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s, transform 0.2s;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .map-pin:hover .tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .tooltip-name {
+      font-weight: 700;
+      display: block;
+    }
+
+    .tooltip-role {
+      color: var(--text-muted);
+    }
+
+    /* Interactive Filters for Map */
+    .map-controls {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.3s;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--accent-blue);
+      color: var(--bg-color);
+      font-weight: 700;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Parallax Header -->
+  <header class="hero">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-content">
+      <h1>Digital Department</h1>
+      <p>30 Members | 6 Autonomous Teams | Floor Plan Layout</p>
+    </div>
+  </header>
+
+  <!-- Sticky Navigation -->
+  <nav id="navbar">
+    <a href="#structure" class="nav-link">Team Structure</a>
+    <a href="#skills" class="nav-link">Skill Matrix</a>
+    <a href="#floorplate" class="nav-link">Floor Plate</a>
+  </nav>
+
+  <!-- SECTION 1: TEAM STRUCTURE -->
+  <section id="structure" class="section-container">
+    <h2 class="section-title">Team Structure</h2>
+    <p class="section-subtitle">Organizational breakdown into 6 specialized squads.</p>
+    <div class="sub-team-grid" id="teamCardsContainer"></div>
+  </section>
+
+  <!-- SECTION 2: SKILL SET MATRIX -->
+  <section id="skills" class="section-container">
+    <h2 class="section-title">Team Skill Matrix</h2>
+    <p class="section-subtitle">Qualitative competency breakdown at squad level across key digital disciplines.</p>
+    <div class="skills-grid" id="skillsContainer"></div>
+  </section>
+
+  <!-- SECTION 3: FLOOR PLATE MAP -->
+  <section id="floorplate" class="section-container">
+    <h2 class="section-title">Floor Plate Allocation</h2>
+    <p class="section-subtitle">Real-time seating allocation overlaid on office floor plan map.</p>
+    
+    <div class="map-controls" id="mapFilters">
+      <button class="filter-btn active" data-filter="all">Show All</button>
+    </div>
+
+    <div class="map-wrapper" id="mapWrapper">
+      <!-- STATIC PNG FLOOR PLAN IMAGE -->
+      <!-- Replace the src below with your local or hosted PNG map path (e.g., "office-map.png") -->
+      <img src="https://placehold.co/1000x600/0b1329/475569?text=Replace+With+Your+Office+Map.png" alt="Office Floor Plan" class="floor-plan-img">
+      
+      <!-- Pins injected dynamically by JS -->
+    </div>
+  </section>
+
+  <footer>
+    <p>Digital Department Team Dashboard &copy; 2026. Scalable vanilla HTML template.</p>
+  </footer>
+
+  <script>
+    /* ==========================================================================
+       SCALABLE DATA STRUCTURE
+       Qualitative Scale options: "None" | "Little" | "Competent" | "Expert"
+       X and Y coordinates represent percentage offsets (0-100) on top of the PNG.
+       ========================================================================== */
+    const teamData = [
+      {
+        id: "t1",
+        name: "Frontend Engineering",
+        color: "var(--accent-blue)",
+        skills: {
+          "Frontend UI/UX": "Expert",
+          "Testing/QA": "Competent",
+          "Analytics": "Little",
+          "Database": "Little",
+          "DevOps": "Competent"
+        },
+        members: [
+          { name: "Alex Morgan", role: "Team Lead", isLead: true, x: 15, y: 20 },
+          { name: "Sarah Chen", role: "Sr. React Dev", isLead: false, x: 20, y: 20 },
+          { name: "James Wilson", role: "UI Engineer", isLead: false, x: 25, y: 20 },
+          { name: "Elena Rostova", role: "CSS Specialist", isLead: false, x: 30, y: 20 },
+          { name: "Liam Patel", role: "Junior Developer", isLead: false, x: 35, y: 20 }
+        ]
+      },
+      {
+        id: "t2",
+        name: "Backend & Cloud",
+        color: "var(--accent-purple)",
+        skills: {
+          "Database": "Expert",
+          "DevOps": "Expert",
+          "Testing/QA": "Competent",
+          "Frontend UI/UX": "None",
+          "Analytics": "Competent"
+        },
+        members: [
+          { name: "Marcus Vance", role: "Principal Architect", isLead: true, x: 15, y: 40 },
+          { name: "Devon Brooks", role: "Database Admin", isLead: false, x: 20, y: 40 },
+          { name: "Priya Sharma", role: "Cloud Infra Engineer", isLead: false, x: 25, y: 40 },
+          { name: "Lucas Meyer", role: "Node/Go Specialist", isLead: false, x: 30, y: 40 },
+          { name: "Nina Gomez", role: "Security Engineer", isLead: false, x: 35, y: 40 }
+        ]
+      },
+      {
+        id: "t3",
+        name: "Quality Assurance",
+        color: "var(--accent-green)",
+        skills: {
+          "Testing/QA": "Expert",
+          "Frontend UI/UX": "Competent",
+          "Database": "Competent",
+          "DevOps": "Competent",
+          "Analytics": "Little"
+        },
+        members: [
+          { name: "Rachel Adams", role: "QA Lead", isLead: true, x: 45, y: 20 },
+          { name: "Tom Wright", role: "Automation Engineer", isLead: false, x: 50, y: 20 },
+          { name: "Kaito Tanaka", role: "SDET", isLead: false, x: 55, y: 20 },
+          { name: "Hannah Abbott", role: "Manual Tester", isLead: false, x: 60, y: 20 },
+          { name: "Omar Farooq", role: "Performance Tester", isLead: false, x: 65, y: 20 }
+        ]
+      },
+      {
+        id: "t4",
+        name: "Data & Analytics",
+        color: "var(--accent-orange)",
+        skills: {
+          "Analytics": "Expert",
+          "Database": "Expert",
+          "Testing/QA": "Little",
+          "DevOps": "Competent",
+          "Frontend UI/UX": "Little"
+        },
+        members: [
+          { name: "Dr. Aris Thorne", role: "Lead Data Scientist", isLead: true, x: 45, y: 40 },
+          { name: "Siddharth Nair", role: "Data Engineer", isLead: false, x: 50, y: 40 },
+          { name: "Chloe Bennett", role: "BI Analyst", isLead: false, x: 55, y: 40 },
+          { name: "Viktor Ivanov", role: "ML Engineer", isLead: false, x: 60, y: 40 },
+          { name: "Zoe Taylor", role: "Data Analyst", isLead: false, x: 65, y: 40 }
+        ]
+      },
+      {
+        id: "t5",
+        name: "Product & UX Design",
+        color: "var(--accent-pink)",
+        skills: {
+          "Frontend UI/UX": "Expert",
+          "Analytics": "Competent",
+          "Testing/QA": "Little",
+          "Database": "None",
+          "DevOps": "None"
+        },
+        members: [
+          { name: "Sophie Martin", role: "Head of Product", isLead: true, x: 75, y: 20 },
+          { name: "Carlos Mendez", role: "Lead Designer", isLead: false, x: 80, y: 20 },
+          { name: "Aisha Khan", role: "UX Researcher", isLead: false, x: 85, y: 20 },
+          { name: "Oliver Scott", role: "Product Manager", isLead: false, x: 90, y: 20 },
+          { name: "Emma Watson", role: "UI/UX Designer", isLead: false, x: 95, y: 20 }
+        ]
+      },
+      {
+        id: "t6",
+        name: "DevOps & SRE",
+        color: "var(--accent-yellow)",
+        skills: {
+          "DevOps": "Expert",
+          "Database": "Competent",
+          "Testing/QA": "Competent",
+          "Analytics": "Competent",
+          "Frontend UI/UX": "None"
+        },
+        members: [
+          { name: "Gareth Evans", role: "DevOps Lead", isLead: true, x: 75, y: 40 },
+          { name: "Yuki Takahashi", role: "SRE Engineer", isLead: false, x: 80, y: 40 },
+          { name: "Daniel Kim", role: "Build Automation", isLead: false, x: 85, y: 40 },
+          { name: "Laura Jackson", role: "SysAdmin", isLead: false, x: 90, y: 40 },
+          { name: "Ben Sullivan", role: "Cloud Ops", isLead: false, x: 95, y: 40 }
+        ]
+      }
+    ];
+
+    // Qualitative Level mappings for visual bars
+    const qualitativeLevels = {
+      "None": 0,
+      "Little": 1,
+      "Competent": 2,
+      "Expert": 4
+    };
+
+    /* ==========================================================================
+       RENDER FUNCTIONS
+       ========================================================================== */
+
+    // Render Section 1: Team Cards
+    function renderTeams() {
+      const container = document.getElementById('teamCardsContainer');
+      container.innerHTML = teamData.map(team => {
+        const leader = team.members.find(m => m.isLead) || team.members[0];
+        const nonLeads = team.members.filter(m => !m.isLead);
+
+        return `
+          <div class="sub-team-card">
+            <div class="team-header">
+              <span class="team-name">${team.name}</span>
+              <span class="team-badge" style="background:${team.color}22; color:${team.color}; border: 1px solid ${team.color}">
+                ${team.members.length} Members
+              </span>
+            </div>
+            <div class="leader-box" style="border-left-color: ${team.color}">
+              <div class="leader-title">Team Lead</div>
+              <strong>${leader.name}</strong> - <span style="color:var(--text-muted); font-size:0.85rem">${leader.role}</span>
+            </div>
+            <ul class="member-list">
+              ${nonLeads.map(m => `
+                <li class="member-item">
+                  <span>${m.name}</span>
+                  <span class="member-role">${m.role}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render Section 2: Qualitative Skills Matrix
+    function renderSkills() {
+      const container = document.getElementById('skillsContainer');
+      container.innerHTML = teamData.map(team => {
+        const skillsHtml = Object.entries(team.skills).map(([skill, level]) => {
+          const filledCount = qualitativeLevels[level] || 0;
+          const levelClass = `level-${level.toLowerCase()}`;
+
+          // Create 4-segment visual indicator
+          let segmentsHtml = '';
+          for (let i = 1; i <= 4; i++) {
+            const isFilled = i <= filledCount;
+            segmentsHtml += `<div class="bar-segment ${isFilled ? 'filled' : ''}" style="${isFilled ? `background:${team.color}` : ''}"></div>`;
+          }
+
+          return `
+            <div class="skill-row">
+              <div class="skill-info">
+                <span>${skill}</span>
+                <span class="level-badge ${levelClass}">${level}</span>
+              </div>
+              <div class="qualitative-bar">
+                ${segmentsHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="skill-card">
+            <h3 style="color:${team.color}">${team.name}</h3>
+            ${skillsHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render Section 3: Map Overlay Pins
+    function renderMap() {
+      const wrapper = document.getElementById('mapWrapper');
+      const filterContainer = document.getElementById('mapFilters');
+
+      // Clear existing pins
+      wrapper.querySelectorAll('.map-pin').forEach(pin => pin.remove());
+
+      // Generate Pins over PNG image
+      teamData.forEach(team => {
+        team.members.forEach(member => {
+          const pin = document.createElement('div');
+          pin.className = `map-pin team-pin-${team.id}`;
+          pin.style.left = `${member.x}%`;
+          pin.style.top = `${member.y}%`;
+          pin.style.backgroundColor = team.color;
+          pin.style.color = team.color;
+
+          pin.innerHTML = `
+            <div class="tooltip">
+              <span class="tooltip-name">${member.name} ${member.isLead ? '👑' : ''}</span>
+              <span class="tooltip-role">${member.role} (${team.name})</span>
+            </div>
+          `;
+          wrapper.appendChild(pin);
+        });
+      });
+
+      // Filter Buttons setup
+      const existingFilters = filterContainer.querySelectorAll('.filter-btn:not([data-filter="all"])');
+      if(existingFilters.length === 0) {
+        teamData.forEach(team => {
+          const btn = document.createElement('button');
+          btn.className = 'filter-btn';
+          btn.textContent = team.name;
+          btn.setAttribute('data-filter', team.id);
+          btn.addEventListener('click', (e) => filterMap(team.id, e.target));
+          filterContainer.appendChild(btn);
+        });
+      }
+    }
+
+    function filterMap(teamId, targetBtn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      targetBtn.classList.add('active');
+
+      const allPins = document.querySelectorAll('.map-pin');
+      allPins.forEach(pin => {
+        if (teamId === 'all' || pin.classList.contains(`team-pin-${teamId}`)) {
+          pin.style.display = 'block';
+        } else {
+          pin.style.display = 'none';
+        }
+      });
+    }
+
+    // Interactive Parallax Scroll Effect
+    window.addEventListener('scroll', () => {
+      const scrolled = window.pageYOffset;
+      const heroBg = document.getElementById('heroBg');
+      if (heroBg) {
+        heroBg.style.transform = `translateY(${scrolled * 0.4}px)`;
+      }
+
+      // Active Navigation state on scroll
+      const sections = document.querySelectorAll('section');
+      const navLinks = document.querySelectorAll('.nav-link');
+      
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (pageYOffset >= sectionTop - 150) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // Default All click setup for map control
+    document.querySelector('[data-filter="all"]').addEventListener('click', (e) => filterMap('all', e.target));
+
+    // Initialize Application
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTeams();
+      renderSkills();
+      renderMap();
+    });
+  </script>
+</body>
+</html>
