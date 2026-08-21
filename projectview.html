@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Analytics Portfolio Explorer</title>
+    <!-- Chart.js for Radar Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary: #2563eb;
+            --cost-color: #16a34a;
+            --quality-color: #0284c7;
+            --safety-color: #dc2626;
+            --delivery-color: #d97706;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px 24px;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* TITLE HEADER */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .page-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+            letter-spacing: -0.3px;
+        }
+
+        .page-header p {
+            margin: 2px 0 0 0;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* COMPACT DASHBOARD HEADER */
+        .dashboard-header {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-header { grid-template-columns: 1fr; }
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .chart-card h4, .kpi-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 140px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* TEAM WORKLOAD BREAKDOWN GRID */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 4px;
+        }
+
+        .team-item {
+            background: var(--bg-color);
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .team-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .team-count {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .team-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* SEARCH & SLICERS */
+        .controls-bar {
+            background: var(--card-bg);
+            padding: 12px 16px;
+            border-radius: 8px 8px 0 0;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .slicers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            font-size: 12px;
+            color: var(--text-main);
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* TABLE STYLES */
+        .table-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 8px 8px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            padding: 10px 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        th:hover { background-color: #e2e8f0; }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .project-row { cursor: pointer; transition: background 0.15s; }
+        .project-row:hover { background-color: #f8fafc; }
+        .project-row.expanded { background-color: #eff6ff; }
+
+        /* BADGES */
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+            text-transform: uppercase;
+        }
+
+        .badge-planning { background: #f1f5f9; color: #475569; }
+        .badge-progress { background: #dbeafe; color: #1e40af; }
+        .badge-complete { background: #dcfce7; color: #166534; }
+
+        .lvl-none { background: #f1f5f9; color: #94a3b8; }
+        .lvl-low { background: #fef9c3; color: #854d0e; }
+        .lvl-medium { background: #fed7aa; color: #9a3412; }
+        .lvl-high { background: #dcfce7; color: #166534; }
+
+        /* EXPANDABLE DRAWER */
+        .detail-row { display: none; background: #f8fafc; }
+        .detail-row.open { display: table-row; }
+
+        .drawer-content {
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: 1.6fr 1.4fr;
+            gap: 20px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .drawer-section h4 {
+            margin: 0 0 8px 0;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .drawer-section p { margin: 0 0 10px 0; font-size: 13px; line-height: 1.4; }
+
+        /* REALISED VALUE BOX */
+        .realised-value-card {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+        .realised-value-card h5 {
+            margin: 0 0 2px 0;
+            color: #166534;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .realised-value-card p {
+            margin: 0;
+            color: #15803d;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        /* TIMELINE COMPONENT */
+        .timeline {
+            position: relative;
+            padding-left: 18px;
+            margin: 8px 0;
+            border-left: 2px solid var(--border-color);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .timeline-item:last-child { margin-bottom: 0; }
+
+        .timeline-dot {
+            position: absolute;
+            left: -24px;
+            top: 2px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            border: 2px solid #fff;
+        }
+
+        .timeline-item.done .timeline-dot { background: var(--cost-color); }
+        .timeline-item.pending .timeline-dot { background: var(--primary); }
+
+        .timeline-title { font-weight: 600; font-size: 12px; margin-bottom: 1px; }
+        .timeline-date { font-size: 11px; color: var(--text-muted); }
+
+        .impact-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .impact-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .tag { background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+
+        .caret {
+            display: inline-block;
+            transition: transform 0.2s;
+            font-size: 10px;
+            margin-right: 6px;
+            color: var(--text-muted);
+        }
+
+        .expanded .caret { transform: rotate(90deg); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- PAGE TITLE HEADER -->
+    <div class="page-header">
+        <div>
+            <h1>Enterprise Analytics Portfolio Explorer</h1>
+            <p>Real-time delivery tracking, qualitative value scores, and team resource allocation</p>
+        </div>
+    </div>
+
+    <!-- COMPACT DASHBOARD HEADER: RADAR + TEAM WORKLOAD -->
+    <div class="dashboard-header">
+        <div class="chart-card">
+            <h4>Value Score Radar</h4>
+            <div class="chart-container">
+                <canvas id="valueRadarChart"></canvas>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <h4>Team Workload Breakdown (Filtered Projects)</h4>
+            <div class="team-grid" id="teamWorkloadGrid">
+                <!-- Dynamically Populated Team Breakdown -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SLICERS & SEARCH CONTROLS -->
+    <div class="controls-bar">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by title, team members, keywords, or functions..." onkeyup="filterTable()">
+        </div>
+        <div class="slicers-grid">
+            <select id="stageFilter" onchange="filterTable()">
+                <option value="">All Stages</option>
+                <option value="Discovery">Discovery</option>
+                <option value="Execution">Execution</option>
+                <option value="Complete">Complete</option>
+            </select>
+            <select id="teamFilter" onchange="filterTable()">
+                <option value="">All Delivery Teams</option>
+                <option value="Computer Vision Lab">Computer Vision Lab</option>
+                <option value="Data Science Ops">Data Science Ops</option>
+                <option value="Data Engineering">Data Engineering</option>
+            </select>
+            <select id="startYearFilter" onchange="filterTable()">
+                <option value="">All Start Years</option>
+                <option value="2024">Started: 2024</option>
+                <option value="2025">Started: 2025</option>
+                <option value="2026">Started: 2026</option>
+            </select>
+            <select id="completedYearFilter" onchange="filterTable()">
+                <option value="">All Completed Years</option>
+                <option value="2024">Completed: 2024</option>
+                <option value="2025">Completed: 2025</option>
+                <option value="2026">Completed: 2026</option>
+                <option value="Ongoing">Active / Ongoing</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- TABLE CONTAINER -->
+    <div class="table-container">
+        <table id="projectsTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Project Name ↕</th>
+                    <th onclick="sortTable(1)">Delivery Team ↕</th>
+                    <th onclick="sortTable(2)">Stage ↕</th>
+                    <th onclick="sortTable(3)">Start Date ↕</th>
+                    <th onclick="sortTable(4)">Finish Date ↕</th>
+                    <th onclick="sortTable(5)">Days Active / Total ↕</th>
+                    <th>Functions Supported</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+
+                <!-- ROW 1: IN PROGRESS -->
+                <tr class="project-row" 
+                    data-stage="Discovery" 
+                    data-team="Computer Vision Lab" 
+                    data-start-year="2026"
+                    data-completed-year="Ongoing"
+                    data-start="2026-05-10"
+                    data-finish=""
+                    data-cost="Low" data-safety="High" data-quality="Medium" data-delivery="Low"
+                    data-functions="EHS, Plant Ops, Facilities"
+                    onclick="toggleDrawer(1)">
+                    <td><span class="caret">▶</span><b>HSE Computer Vision Risk Detector</b><br><small style="color:var(--text-muted)">Members: S. Jenkins, M. Vance</small></td>
+                    <td>Computer Vision Lab</td>
+                    <td><span class="badge badge-planning">Discovery</span></td>
+                    <td>2026-05-10</td>
+                    <td>--</td>
+                    <td class="days-cell">--</td>
+                    <td>EHS, Plant Ops, Facilities</td>
+                </tr>
+                <tr id="drawer-1" class="detail-row">
+                    <td colspan="7">
+                        <div class="drawer-content">
+                            <div class="drawer-section">
+                                <h4>Project Charter & Objectives</h4>
+                                <p><strong>Problem:</strong> Manual safety audit reporting in manufacturing facilities is delayed by up to 14 days, leading to unreported near-miss incidents.</p>
+                                <p><strong>Objective:</strong> Deploy automated edge-CV models on shop-floor cameras to flag non-compliance PPE events in real time and notify shift managers immediately.</p>
+                                
+                                <h4>Milestone Timeline</h4>
+                                <div class="timeline">
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Camera Feed API Setup</div>
+                                        <div class="timeline-date">Completed May 2026</div>
+                                    </div>
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Initial Dataset Labeling (5,000 images)</div>
+                                        <div class="timeline-date">Completed June 2026</div>
+                                    </div>
+                                    <div class="timeline-item pending">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Model Edge Deployment</div>
+                                        <div class="timeline-date">Target: Q3 2026</div>
+                                    </div>
+                                    <div class="timeline-item pending">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Shift Manager Dashboard Integration</div>
+                                        <div class="timeline-date">Target: Q4 2026</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="drawer-section">
+                                <h4>Qualitative Value Impact Matrix</h4>
+                                <div class="impact-grid">
+                                    <div class="impact-item"><span>Safety Impact:</span> <span class="badge lvl-high">High (3)</span></div>
+                                    <div class="impact-item"><span>Cost Impact:</span> <span class="badge lvl-low">Low (1)</span></div>
+                                    <div class="impact-item"><span>Quality Impact:</span> <span class="badge lvl-medium">Medium (2)</span></div>
+                                    <div class="impact-item"><span>Delivery Impact:</span> <span class="badge lvl-low">Low (1)</span></div>
+                                </div>
+
+                                <h4 style="margin-top: 14px;">Delivery Team & Members</h4>
+                                <p style="margin-bottom: 8px;"><strong>Team:</strong> Computer Vision Lab<br><strong>Members:</strong> Sarah Jenkins (Lead), Marcus Vance (ML Engineer)</p>
+
+                                <h4>Functions Supported</h4>
+                                <div class="tag-list">
+                                    <span class="tag">EHS</span>
+                                    <span class="tag">Plant Operations</span>
+                                    <span class="tag">Facilities</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- ROW 2: MIDWAY -->
+                <tr class="project-row" 
+                    data-stage="Execution" 
+                    data-team="Data Science Ops" 
+                    data-start-year="2025"
+                    data-completed-year="Ongoing"
+                    data-start="2025-11-15"
+                    data-finish=""
+                    data-cost="High" data-safety="None" data-quality="Medium" data-delivery="High"
+                    data-functions="Supply Chain, Finance, Logistics"
+                    onclick="toggleDrawer(2)">
+                    <td><span class="caret">▶</span><b>Supply Chain Demand Forecasting</b><br><small style="color:var(--text-muted)">Members: A. Chen, R. Torres, K. Lee</small></td>
+                    <td>Data Science Ops</td>
+                    <td><span class="badge badge-progress">Execution</span></td>
+                    <td>2025-11-15</td>
+                    <td>--</td>
+                    <td class="days-cell">--</td>
+                    <td>Supply Chain, Finance, Logistics</td>
+                </tr>
+                <tr id="drawer-2" class="detail-row">
+                    <td colspan="7">
+                        <div class="drawer-content">
+                            <div class="drawer-section">
+                                <h4>Project Charter & Objectives</h4>
+                                <p><strong>Problem:</strong> Over-reliance on static Excel models leads to frequent stock-outs during seasonal surges and over-ordering during lulls.</p>
+                                <p><strong>Objective:</strong> Implement an automated time-series machine learning model integrated with core ERP to adjust weekly replenishment orders dynamically.</p>
+                                
+                                <h4>Milestone Timeline</h4>
+                                <div class="timeline">
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">ERP Data Ingestion Pipeline Active</div>
+                                        <div class="timeline-date">Completed Dec 2025</div>
+                                    </div>
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Backtesting Model Accuracy (91% achieved)</div>
+                                        <div class="timeline-date">Completed Feb 2026</div>
+                                    </div>
+                                    <div class="timeline-item pending">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Automated Ordering Trigger Rollout</div>
+                                        <div class="timeline-date">Target: Q3 2026</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="drawer-section">
+                                <h4>Qualitative Value Impact Matrix</h4>
+                                <div class="impact-grid">
+                                    <div class="impact-item"><span>Safety Impact:</span> <span class="badge lvl-none">None (0)</span></div>
+                                    <div class="impact-item"><span>Cost Impact:</span> <span class="badge lvl-high">High (3)</span></div>
+                                    <div class="impact-item"><span>Quality Impact:</span> <span class="badge lvl-medium">Medium (2)</span></div>
+                                    <div class="impact-item"><span>Delivery Impact:</span> <span class="badge lvl-high">High (3)</span></div>
+                                </div>
+
+                                <h4 style="margin-top: 14px;">Delivery Team & Members</h4>
+                                <p style="margin-bottom: 8px;"><strong>Team:</strong> Data Science Ops<br><strong>Members:</strong> Alex Chen (Lead), Rosa Torres (Data Scientist), Ken Lee (Data Engineer)</p>
+
+                                <h4>Functions Supported</h4>
+                                <div class="tag-list">
+                                    <span class="tag">Supply Chain</span>
+                                    <span class="tag">Finance</span>
+                                    <span class="tag">Logistics</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- ROW 3: COMPLETED -->
+                <tr class="project-row" 
+                    data-stage="Complete" 
+                    data-team="Data Engineering" 
+                    data-start-year="2024"
+                    data-completed-year="2024"
+                    data-start="2024-03-01"
+                    data-finish="2024-11-10"
+                    data-cost="High" data-safety="None" data-quality="High" data-delivery="High"
+                    data-functions="Accounts Payable, Finance, Vendor Ops"
+                    onclick="toggleDrawer(3)">
+                    <td><span class="caret">▶</span><b>Automated Invoice Reconciliation Pipeline</b><br><small style="color:var(--text-muted)">Members: M. Patel, D. Kim</small></td>
+                    <td>Data Engineering</td>
+                    <td><span class="badge badge-complete">Complete</span></td>
+                    <td>2024-03-01</td>
+                    <td>2024-11-10</td>
+                    <td class="days-cell">--</td>
+                    <td>Accounts Payable, Finance, Vendor Ops</td>
+                </tr>
+                <tr id="drawer-3" class="detail-row">
+                    <td colspan="7">
+                        <div class="drawer-content">
+                            <div class="drawer-section">
+                                <div class="realised-value-card">
+                                    <h5>Realised Value Delivered</h5>
+                                    <p>✓ Reduced invoice processing cycle time by 82% ($420k annual labor savings achieved).</p>
+                                </div>
+
+                                <h4>Project Charter & Objectives</h4>
+                                <p><strong>Problem:</strong> Accounts Payable manually reviewed over 12,000 monthly invoices, leading to duplicate payment errors and missed early-pay discounts.</p>
+                                <p><strong>Objective:</strong> Deploy an automated ingestion pipeline using OCR and fuzzy-matching logic to reconcile invoices against purchase orders.</p>
+                                
+                                <h4>Milestone Timeline</h4>
+                                <div class="timeline">
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">OCR Ingestion Pipeline Built</div>
+                                        <div class="timeline-date">Completed May 2024</div>
+                                    </div>
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Fuzzy Match Engine Integrated</div>
+                                        <div class="timeline-date">Completed Aug 2024</div>
+                                    </div>
+                                    <div class="timeline-item done">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-title">Production Sign-off & Handover</div>
+                                        <div class="timeline-date">Completed Nov 2024</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="drawer-section">
+                                <h4>Qualitative Value Impact Matrix</h4>
+                                <div class="impact-grid">
+                                    <div class="impact-item"><span>Safety Impact:</span> <span class="badge lvl-none">None (0)</span></div>
+                                    <div class="impact-item"><span>Cost Impact:</span> <span class="badge lvl-high">High (3)</span></div>
+                                    <div class="impact-item"><span>Quality Impact:</span> <span class="badge lvl-high">High (3)</span></div>
+                                    <div class="impact-item"><span>Delivery Impact:</span> <span class="badge lvl-high">High (3)</span></div>
+                                </div>
+
+                                <h4 style="margin-top: 14px;">Delivery Team & Members</h4>
+                                <p style="margin-bottom: 8px;"><strong>Team:</strong> Data Engineering<br><strong>Members:</strong> Maya Patel (Lead), David Kim (Backend Engineer)</p>
+
+                                <h4>Functions Supported</h4>
+                                <div class="tag-list">
+                                    <span class="tag">Accounts Payable</span>
+                                    <span class="tag">Finance</span>
+                                    <span class="tag">Vendor Ops</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let radarChart;
+    let sortDirections = {};
+
+    function scoreValue(val) {
+        switch(val) {
+            case 'High': return 3;
+            case 'Medium': return 2;
+            case 'Low': return 1;
+            default: return 0;
+        }
+    }
+
+    function calculateDays() {
+        const today = new Date();
+        document.querySelectorAll('.project-row').forEach(row => {
+            const startStr = row.getAttribute('data-start');
+            const finishStr = row.getAttribute('data-finish');
+            const daysCell = row.querySelector('.days-cell');
+            
+            if (startStr) {
+                const startDate = new Date(startStr);
+                const endDate = finishStr ? new Date(finishStr) : today;
+                
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                daysCell.innerText = `${diffDays} days`;
+            }
+        });
+    }
+
+    function toggleDrawer(id) {
+        const drawer = document.getElementById(`drawer-${id}`);
+        const row = drawer.previousElementSibling;
+        const isOpen = drawer.classList.contains('open');
+        
+        document.querySelectorAll('.detail-row').forEach(d => d.classList.remove('open'));
+        document.querySelectorAll('.project-row').forEach(r => r.classList.remove('expanded'));
+
+        if (!isOpen) {
+            drawer.classList.add('open');
+            row.classList.add('expanded');
+        }
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('valueRadarChart').getContext('2d');
+        radarChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Safety', 'Cost', 'Quality', 'Delivery'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(37, 99, 235, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: { beginAtZero: true, ticks: { stepSize: 2, display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function renderTeamWorkload(visibleRows) {
+        const grid = document.getElementById('teamWorkloadGrid');
+        grid.innerHTML = '';
+
+        const teamCounts = {};
+        visibleRows.forEach(row => {
+            const team = row.getAttribute('data-team');
+            teamCounts[team] = (teamCounts[team] || 0) + 1;
+        });
+
+        const allTeams = ['Computer Vision Lab', 'Data Science Ops', 'Data Engineering'];
+
+        allTeams.forEach(team => {
+            const count = teamCounts[team] || 0;
+            const card = document.createElement('div');
+            card.className = 'team-item';
+            card.innerHTML = `
+                <div class="team-name">${team}</div>
+                <div class="team-count">${count}</div>
+                <div class="team-sub">Active in filter</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function filterTable() {
+        const searchText = document.getElementById('searchInput').value.toLowerCase();
+        const stageVal = document.getElementById('stageFilter').value;
+        const teamVal = document.getElementById('teamFilter').value;
+        const startYearVal = document.getElementById('startYearFilter').value;
+        const completedYearVal = document.getElementById('completedYearFilter').value;
+
+        const rows = document.querySelectorAll('#tableBody .project-row');
+        let visibleRows = [];
+
+        let safetySum = 0, costSum = 0, qualitySum = 0, deliverySum = 0;
+
+        rows.forEach(row => {
+            const drawer = row.nextElementSibling;
+            const text = row.innerText.toLowerCase() + " " + drawer.innerText.toLowerCase();
+            
+            const rowStage = row.getAttribute('data-stage');
+            const rowTeam = row.getAttribute('data-team');
+            const rowStartYear = row.getAttribute('data-start-year');
+            const rowCompletedYear = row.getAttribute('data-completed-year');
+
+            const matchesSearch = text.includes(searchText);
+            const matchesStage = stageVal === "" || rowStage === stageVal;
+            const matchesTeam = teamVal === "" || rowTeam === teamVal;
+            const matchesStartYear = startYearVal === "" || rowStartYear === startYearVal;
+            const matchesCompletedYear = completedYearVal === "" || rowCompletedYear === completedYearVal;
+
+            if (matchesSearch && matchesStage && matchesTeam && matchesStartYear && matchesCompletedYear) {
+                row.style.display = "";
+                visibleRows.push(row);
+
+                safetySum += scoreValue(row.getAttribute('data-safety'));
+                costSum += scoreValue(row.getAttribute('data-cost'));
+                qualitySum += scoreValue(row.getAttribute('data-quality'));
+                deliverySum += scoreValue(row.getAttribute('data-delivery'));
+            } else {
+                row.style.display = "none";
+                drawer.classList.remove('open');
+                row.classList.remove('expanded');
+            }
+        });
+
+        if (radarChart) {
+            radarChart.data.datasets[0].data = [safetySum, costSum, qualitySum, deliverySum];
+            radarChart.update();
+        }
+
+        renderTeamWorkload(visibleRows);
+    }
+
+    function sortTable(columnIndex) {
+        const tbody = document.getElementById("tableBody");
+        const rows = Array.from(tbody.querySelectorAll(".project-row"));
+
+        sortDirections[columnIndex] = !sortDirections[columnIndex];
+        const isAscending = sortDirections[columnIndex];
+
+        rows.sort((a, b) => {
+            let x = a.getElementsByTagName("TD")[columnIndex].innerText.trim().toLowerCase();
+            let y = b.getElementsByTagName("TD")[columnIndex].innerText.trim().toLowerCase();
+
+            if (columnIndex === 3 || columnIndex === 4) {
+                x = a.getAttribute(columnIndex === 3 ? 'data-start' : 'data-finish') || '9999-99-99';
+                y = b.getAttribute(columnIndex === 3 ? 'data-start' : 'data-finish') || '9999-99-99';
+            } else if (columnIndex === 5) {
+                x = parseInt(a.querySelector('.days-cell').innerText) || 0;
+                y = parseInt(b.querySelector('.days-cell').innerText) || 0;
+            }
+
+            if (x < y) return isAscending ? -1 : 1;
+            if (x > y) return isAscending ? 1 : -1;
+            return 0;
+        });
+
+        rows.forEach(row => {
+            const drawer = row.nextElementSibling;
+            tbody.appendChild(row);
+            tbody.appendChild(drawer);
+        });
+    }
+
+    window.onload = function() {
+        initChart();
+        calculateDays();
+        filterTable();
+    };
+</script>
+
+</body>
+</html>
