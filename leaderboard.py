@@ -93,6 +93,7 @@ def calculate_monthly_ranks(records):
                 {
                     "reviewer": rev,
                     "count": count,
+                    "story_points": sp_total,
                     "weighted": weighted_score,
                     "first_time": first_review_time,
                 }
@@ -134,6 +135,7 @@ def calculate_monthly_ranks(records):
                             "points": shared_points,
                             "score": item[mode_key],
                             "count": item["count"],
+                            "story_points": item["story_points"],
                         }
                     )
                 i = j
@@ -149,6 +151,8 @@ def calculate_monthly_ranks(records):
             month_combined.append(
                 {
                     "reviewer": rev,
+                    "count": weighted_res[rev]["count"],
+                    "story_points": weighted_res[rev]["story_points"],
                     "weighted": weighted_res[rev],
                     "unweighted": unweighted_res[rev],
                 }
@@ -171,7 +175,6 @@ def generate_html_report(monthly_rankings, template_path="template.html"):
         "reviewers": sorted(list(all_reviewers)),
     }
 
-    # Generate dynamic month HTML structures
     tab_buttons = []
     tab_contents = []
 
@@ -184,7 +187,6 @@ def generate_html_report(monthly_rankings, template_path="template.html"):
             f'<div id="month-{m_num}" class="tab-content"><h2>{name} Standings</h2><div id="month-table-{m_num}"></div></div>'
         )
 
-    # Read template file and replace comment placeholders
     with open(template_path, "r", encoding="utf-8") as f:
         template = f.read()
 
