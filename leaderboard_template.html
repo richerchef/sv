@@ -34,12 +34,32 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
         .badge {
             background: var(--bbc-yellow);
             color: var(--bbc-black);
             padding: 4px 10px;
             font-weight: bold;
             font-size: 14px;
+        }
+        .rules-btn {
+            background-color: transparent;
+            color: #fff;
+            border: 1px solid var(--bbc-yellow);
+            padding: 5px 12px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+        }
+        .rules-btn:hover {
+            background-color: var(--bbc-yellow);
+            color: var(--bbc-black);
         }
         .controls-bar {
             background: white;
@@ -137,6 +157,7 @@
             border-radius: 3px;
             background-color: #e0e0e0;
             color: #333;
+            box-sizing: border-box;
         }
         .history-gold {
             background-color: #ffd200;
@@ -149,6 +170,13 @@
         .history-bronze {
             background-color: #cd7f32;
             color: #fff;
+        }
+        
+        /* Faded Provisional Style for Current Month */
+        .history-provisional {
+            opacity: 0.55;
+            border: 1px dashed #000;
+            position: relative;
         }
 
         .card-grid {
@@ -193,13 +221,101 @@
         }
         input:checked + .slider { background-color: var(--bbc-red); }
         input:checked + .slider:before { transform: translateX(22px); }
+
+        /* Rules Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(2px);
+        }
+        .modal-content {
+            background-color: #ffffff;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 650px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            border-top: 5px solid var(--bbc-yellow);
+        }
+        .modal-header {
+            background-color: var(--bbc-black);
+            color: white;
+            padding: 18px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .close-btn {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-btn:hover,
+        .close-btn:focus {
+            color: var(--bbc-yellow);
+            text-decoration: none;
+        }
+        .modal-body {
+            padding: 25px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .modal-body h3 {
+            margin-top: 18px;
+            margin-bottom: 8px;
+            color: var(--bbc-black);
+            font-size: 16px;
+            border-bottom: 2px solid var(--bbc-yellow);
+            display: inline-block;
+            padding-bottom: 2px;
+        }
+        .modal-body h3:first-child {
+            margin-top: 0;
+        }
+        .modal-body ul, .modal-body ol {
+            margin: 0 0 15px 0;
+            padding-left: 20px;
+        }
+        .modal-body li {
+            margin-bottom: 6px;
+        }
+        .rule-callout {
+            background-color: #fff9e6;
+            border-left: 4px solid var(--bbc-yellow);
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+        .rule-callout strong {
+            color: var(--bbc-black);
+        }
     </style>
 </head>
 <body>
 
 <header>
     <h1>DevOps Reviewer Championship 2026</h1>
-    <span class="badge">BBC SPORT STYLE</span>
+    <div class="header-actions">
+        <button class="rules-btn" onclick="openRulesModal()">📋 Rules & Regulations</button>
+        <span class="badge">BBC SPORT STYLE</span>
+    </div>
 </header>
 
 <div class="controls-bar">
@@ -229,7 +345,7 @@
         <h2>Season Analytics & Potential</h2>
         <div class="card-grid">
             <div class="card">
-                <h4>Months Elapsed</h4>
+                <h4>Completed Months</h4>
                 <div class="value" id="stat-elapsed">0 / 12</div>
             </div>
             <div class="card">
@@ -244,16 +360,73 @@
         <div class="chart-box">
             <canvas id="progressChart"></canvas>
         </div>
-        <h3 style="margin-top:40px;">Max Potential Finish Matrix</h3>
+        <h3 style="margin-top:40px;">Potential Finish Matrix</h3>
         <div id="potential-table-container"></div>
     </div>
 
     <!--MONTH_CONTENTS-->
 </div>
 
+<!-- Rules & Regulations Modal -->
+<div id="rulesModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Championship Rules & Regulations</h2>
+            <span class="close-btn" onclick="closeRulesModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <h3>1. Scoring Modes</h3>
+            <ul>
+                <li><strong>Raw Reviews Mode:</strong> Ranks reviewers based solely on the total number of PR reviews completed in the calendar month.</li>
+                <li><strong>Weighted Mode:</strong> Ranks reviewers based on <code>Total Reviews × Total Story Points</code> reviewed in the month.</li>
+            </ul>
+
+            <h3>2. F1 Points Allocation</h3>
+            <p>At the end of each month, reviewers receive championship points based on their rank using the Formula 1 points scale:</p>
+            <ul>
+                <li><strong>1st:</strong> 25 pts | <strong>2nd:</strong> 18 pts | <strong>3rd:</strong> 15 pts | <strong>4th:</strong> 12 pts | <strong>5th:</strong> 10 pts</li>
+                <li><strong>6th:</strong> 8 pts | <strong>7th:</strong> 6 pts | <strong>8th:</strong> 4 pts | <strong>9th:</strong> 2 pts | <strong>10th:</strong> 1 pt</li>
+            </ul>
+
+            <h3>3. Tie-Breaking & Countback Rules</h3>
+            <div class="rule-callout">
+                <strong>⏱️ Monthly Tie-Breaker (First to Review):</strong><br>
+                If two or more reviewers finish a month with the exact same monthly score (or raw review count), the tie is broken by <strong>time-to-first-review</strong>. The reviewer who recorded their first review of that month earlier in time earns the higher position.
+            </div>
+            <p>If monthly scores and timestamps are completely identical, points for those positions are split evenly between tied participants.</p>
+
+            <h3>4. Overall Championship Standings Tie-Breaker</h3>
+            <p>If reviewers are level on total championship points at any stage in the season, ties are resolved using standard F1 countback criteria:</p>
+            <ol>
+                <li>Most 1st-place finishes (Wins / 25 pts)</li>
+                <li>Most Podium finishes (Top 3 placements)</li>
+                <li>Most 2nd-place finishes, 3rd-place finishes, and so on.</li>
+            </ol>
+
+            <h3>5. Provisional Scores</h3>
+            <p>The active/current month (e.g., September) displays with a dashed outline and reduced opacity to indicate that scores are provisional until the month closes.</p>
+        </div>
+    </div>
+</div>
+
 <script>
 const data = <!--DATA_PAYLOAD-->;
 let progressChart = null;
+
+function openRulesModal() {
+    document.getElementById('rulesModal').style.display = 'block';
+}
+
+function closeRulesModal() {
+    document.getElementById('rulesModal').style.display = 'none';
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('rulesModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
 
 function isWeighted() {
     return document.getElementById('modeToggle').checked;
@@ -277,11 +450,8 @@ function renderAll() {
 }
 
 function renderChampionship(mode) {
-    let elapsed = 0;
-    for (let m = 1; m <= 12; m++) {
-        if ((data.monthlyData[m] || []).length > 0) elapsed = m;
-    }
-
+    const currentMonthNum = data.currentMonth;
+    
     const stats = {};
     data.reviewers.forEach(r => {
         stats[r] = {
@@ -295,20 +465,19 @@ function renderChampionship(mode) {
     for (let m = 1; m <= 12; m++) {
         const monthList = data.monthlyData[m] || [];
         
-        // Track history only up to the last active month
         data.reviewers.forEach(r => {
             const entry = monthList.find(x => x.reviewer === r);
             if (entry) {
                 const pts = entry[mode].points;
                 const rank = entry[mode].rank;
-                if (m <= elapsed) {
-                    stats[r].history.push(pts);
+                if (m <= currentMonthNum) {
+                    stats[r].history.push({ pts: pts, month: m });
                 }
                 stats[r].totalPoints += pts;
                 if (rank === 1) stats[r].wins += 1;
                 if (rank <= 3 && rank > 0) stats[r].podiums += 1;
-            } else if (m <= elapsed) {
-                stats[r].history.push(0);
+            } else if (m <= currentMonthNum) {
+                stats[r].history.push({ pts: 0, month: m });
             }
         });
     }
@@ -322,7 +491,7 @@ function renderChampionship(mode) {
         <th>Reviewer</th>
         <th>Wins</th>
         <th>Podiums</th>
-        <th>Points History (M1 - M${elapsed})</th>
+        <th>Points History (M1 - M${currentMonthNum})</th>
         <th>Total Points</th>
     </tr></thead><tbody>`;
 
@@ -330,13 +499,16 @@ function renderChampionship(mode) {
         const posClass = index === 0 ? 'pos-1' : index === 1 ? 'pos-2' : index === 2 ? 'pos-3' : '';
         
         let historyBoxes = '<div class="history-container">';
-        item.history.forEach(pts => {
+        item.history.forEach(h => {
             let colorClass = '';
-            if (pts === 25) colorClass = 'history-gold';
-            else if (pts === 18) colorClass = 'history-silver';
-            else if (pts === 15) colorClass = 'history-bronze';
+            if (h.pts === 25) colorClass = 'history-gold';
+            else if (h.pts === 18) colorClass = 'history-silver';
+            else if (h.pts === 15) colorClass = 'history-bronze';
 
-            historyBoxes += `<span class="history-box ${colorClass}">${pts > 0 ? pts.toFixed(0) : '-'}</span>`;
+            const provisionalClass = (h.month === currentMonthNum) ? 'history-provisional' : '';
+            const titleAttr = (h.month === currentMonthNum) ? 'title="Provisional (Month In Progress)"' : '';
+
+            historyBoxes += `<span class="history-box ${colorClass} ${provisionalClass}" ${titleAttr}>${h.pts > 0 ? h.pts.toFixed(0) : '-'}</span>`;
         });
         historyBoxes += '</div>';
 
@@ -387,15 +559,12 @@ function renderMonthly(mode) {
 }
 
 function renderAnalytics(mode) {
-    let elapsed = 0;
-    for (let m = 1; m <= 12; m++) {
-        if ((data.monthlyData[m] || []).length > 0) elapsed = m;
-    }
-
-    const remainingMonths = 12 - elapsed;
+    const currentMonthNum = data.currentMonth;
+    const completedMonths = currentMonthNum - 1;
+    const remainingMonths = 12 - completedMonths; // Includes active/current month
     const maxRemainingPts = remainingMonths * 25;
 
-    document.getElementById('stat-elapsed').innerText = `${elapsed} / 12`;
+    document.getElementById('stat-elapsed').innerText = `${completedMonths} / 12`;
     document.getElementById('stat-remaining-pts').innerText = maxRemainingPts;
 
     const cumPoints = {};
@@ -443,17 +612,29 @@ function renderAnalytics(mode) {
         }
     });
 
-    let potHtml = `<table><thead><tr><th>Reviewer</th><th>Current Points</th><th>Max Possible Points</th><th>Highest Potential Finish</th></tr></thead><tbody>`;
+    let potHtml = `<table><thead><tr>
+        <th>Reviewer</th>
+        <th>Current Points</th>
+        <th>Max Possible Points</th>
+        <th>Highest Potential Finish</th>
+        <th>Lowest Potential Finish</th>
+    </tr></thead><tbody>`;
     
     currentStandings.forEach(item => {
         const maxPossible = item.pts + maxRemainingPts;
+        
+        // Highest Pos: Rank if this reviewer hits maxPossible while everyone else stays at current points
         const highestPos = currentStandings.filter(other => other.pts > maxPossible).length + 1;
+
+        // Lowest Pos: Rank if this reviewer gets 0 additional pts while every rival hits their maxPossible
+        const lowestPos = currentStandings.filter(other => (other.pts + maxRemainingPts) > item.pts && other.reviewer !== item.reviewer).length + 1;
 
         potHtml += `<tr>
             <td><strong>${item.reviewer}</strong></td>
             <td>${item.pts.toFixed(1)}</td>
             <td>${maxPossible.toFixed(1)}</td>
-            <td><strong>Pos ${highestPos}</strong></td>
+            <td><strong style="color: #008000;">Pos ${highestPos}</strong></td>
+            <td><strong style="color: #b80000;">Pos ${lowestPos}</strong></td>
         </tr>`;
     });
     potHtml += `</tbody></table>`;
