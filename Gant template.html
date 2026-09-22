@@ -1,0 +1,215 @@
+from datetime import datetime, timedelta, timezone
+import json
+import pandas as pd
+import requests
+
+# -------------------------------------------------------------------
+# 1. Azure DevOps Configuration
+# -------------------------------------------------------------------
+ORGANIZATION = "your-org-name"
+PROJECT = "your-project-name"
+PAT = "your-personal-access-token"  # Requires Read access to Work Items
+
+# Status configurations matching your process template (Agile/Scrum/Basic)
+ACTIVE_STATES = ["In Progress", "Active", "Doing"]
+DONE_STATES = ["Closed", "Done", "Resolved", "Completed"]
+
+# Base headers using Personal Access Token (PAT) Basic Auth
+auth = ("", PAT)
+base_url = f"https://dev.azure.com/{ORGANIZATION}/{PROJECT}/_apis"
+
+# -------------------------------------------------------------------
+# 2. WIQL Query: Find Work Items Updated in the Last 30 Days
+# -------------------------------------------------------------------
+wiql_url = f"{base_url}/wit/wiql?api-version=7.0"
+query = """
+SELECT [System.Id] 
+FROM WorkItems 
+WHERE [System.TeamProject] = @project 
+  AND [System.ChangedDate] >= @today - 30
+ORDER BY [System.ChangedDate] DESC
+"""
+
+response = requests.post(wiql_url, json={"query": query}, auth=auth)
+response.raise_for_status()
+work_item_refs = response.json().get("workItems", [])
+
+item_ids = [wi["id"] for wi in work_item_refs]
+
+# -------------------------------------------------------------------
+# 3. Fetch Work Item Details & Revisions for "Active" Timestamp
+# -------------------------------------------------------------------
+now = datetime.now(timezone.utc)
+thirty_days_ago = now - timedelta(days=30)
+parsed_tickets = []
+
+for work_item_id in item_ids:
+    # Get Revisions history to find when state changed to 'Active' / 'In Progress'
+    revisions_url = (
+        f"{base_url}/wit/workitems/{work_item_id}/revisions?api-version=7.0"
+    )
+    rev_response = requests.get(revisions_url, auth=auth)
+    if rev_response.status_code != 200:
+        continue
+
+    revisions = rev_response.json().get("value", [])
+
+    title = ""
+    assignee = "Unassigned"
+    current_state = ""
+    active_timestamp = None
+    resolved_timestamp = None
+
+    for rev in revisions:
+        fields = rev.get("fields", {})
+
+        # Track basic info from latest revision snapshot
+        title = fields.get("System.Title", title)
+        current_state = fields.get("System.State", current_state)
+
+        assigned_to = fields.get("System.AssignedTo", {})
+        if isinstance(assigned_to, dict):
+            assignee = assigned_to.get("displayName", "Unassigned")
+
+        changed_date = fields.get("System.ChangedDate")
+        state = fields.get("System.State")
+
+        # Capture first time item transitioned to an Active state
+        if state in ACTIVE_STATES and not active_timestamp:
+            active_timestamp = changed_date
+
+        # Capture when item transitioned to Done/Closed
+        if state in DONE_STATES:
+            resolved_timestamp = changed_date
+
+    # Fallback: If currently active but revision history didn't catch start transition, use creation date
+    if not active_timestamp and current_state in ACTIVE_STATES:
+        active_timestamp = revisions[0]["fields"].get("System.CreatedDate")
+
+    # Only plot items that were actually active within the last 30 days
+    if active_timestamp:
+        start_dt = pd.to_datetime(active_timestamp)
+        end_dt = pd.to_datetime(resolved_timestamp) if resolved_timestamp else now
+
+        if end_dt >= thirty_days_ago:
+            parsed_tickets.append(
+                {
+                    "id": f"#{work_item_id}",
+                    "title": title,
+                    "assignee": assignee,
+                    "state": current_state,
+                    "start": start_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                    "end": end_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                    "is_active": resolved_timestamp is None,
+                }
+            )
+
+# -------------------------------------------------------------------
+# 4. Prepare Vis.js Timeline Data
+# -------------------------------------------------------------------
+items = []
+groups = set()
+
+for t in parsed_tickets:
+    groups.add(t["assignee"])
+    items.append(
+        {
+            "id": t["id"],
+            "content": f"<b>{t['id']}</b>: {t['title']}",
+            "start": t["start"],
+            "end": t["end"],
+            "group": t["assignee"],
+            "className": "in-progress" if t["is_active"] else "completed",
+        }
+    )
+
+group_list = [{"id": g, "content": g} for g in sorted(groups)]
+
+# -------------------------------------------------------------------
+# 5. Render HTML Template
+# -------------------------------------------------------------------
+html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Azure DevOps Timeline (Last 30 Days)</title>
+    <!-- Vis.js Timeline Library -->
+    <script type="text/javascript" src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 24px;
+            background-color: #f8f9fa;
+            color: #252729;
+        }}
+        h2 {{
+            color: #0078d4; /* Azure Blue */
+            margin-bottom: 8px;
+        }}
+        .subtitle {{
+            color: #575e66;
+            margin-bottom: 20px;
+        }}
+        #timeline {{
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #e1dfdd;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }}
+        /* Gantt Bar Styles */
+        .vis-item.in-progress {{
+            background-color: #0078d4;
+            border-color: #005a9e;
+            color: #ffffff;
+        }}
+        .vis-item.completed {{
+            background-color: #107c41;
+            border-color: #0b5a2f;
+            color: #ffffff;
+        }}
+        .vis-label {{
+            font-weight: 600;
+            color: #323130;
+        }}
+    </style>
+</head>
+<body>
+
+    <h2>Azure DevOps Active Work Timeline</h2>
+    <p class="subtitle">Showing tickets active in the last 30 days. Scroll horizontally or drag to navigate time; use <code>Ctrl + Scroll</code> to zoom.</p>
+    
+    <div id="timeline"></div>
+
+    <script type="text/javascript">
+        var itemsData = {json.dumps(items)};
+        var groupsData = {json.dumps(group_list)};
+
+        var items = new vis.DataSet(itemsData);
+        var groups = new vis.DataSet(groupsData);
+
+        var container = document.getElementById('timeline');
+        var options = {{
+            stack: true,
+            start: '{thirty_days_ago.strftime("%Y-%m-%d")}',
+            end: '{now.strftime("%Y-%m-%d")}',
+            horizontalScroll: true,
+            zoomKey: 'ctrlKey',
+            orientation: 'top',
+            maxHeight: '650px'
+        }};
+
+        var timeline = new vis.Timeline(container, items, groups, options);
+    </script>
+</body>
+</html>
+"""
+
+output_filename = "azure_devops_timeline.html"
+with open(output_filename, "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print(
+    f"Successfully processed {len(parsed_tickets)} Azure DevOps items into '{output_filename}'"
+)
