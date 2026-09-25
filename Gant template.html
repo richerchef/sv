@@ -1,215 +1,211 @@
-from datetime import datetime, timedelta, timezone
-import json
-import pandas as pd
-import requests
-
-# -------------------------------------------------------------------
-# 1. Azure DevOps Configuration
-# -------------------------------------------------------------------
-ORGANIZATION = "your-org-name"
-PROJECT = "your-project-name"
-PAT = "your-personal-access-token"  # Requires Read access to Work Items
-
-# Status configurations matching your process template (Agile/Scrum/Basic)
-ACTIVE_STATES = ["In Progress", "Active", "Doing"]
-DONE_STATES = ["Closed", "Done", "Resolved", "Completed"]
-
-# Base headers using Personal Access Token (PAT) Basic Auth
-auth = ("", PAT)
-base_url = f"https://dev.azure.com/{ORGANIZATION}/{PROJECT}/_apis"
-
-# -------------------------------------------------------------------
-# 2. WIQL Query: Find Work Items Updated in the Last 30 Days
-# -------------------------------------------------------------------
-wiql_url = f"{base_url}/wit/wiql?api-version=7.0"
-query = """
-SELECT [System.Id] 
-FROM WorkItems 
-WHERE [System.TeamProject] = @project 
-  AND [System.ChangedDate] >= @today - 30
-ORDER BY [System.ChangedDate] DESC
-"""
-
-response = requests.post(wiql_url, json={"query": query}, auth=auth)
-response.raise_for_status()
-work_item_refs = response.json().get("workItems", [])
-
-item_ids = [wi["id"] for wi in work_item_refs]
-
-# -------------------------------------------------------------------
-# 3. Fetch Work Item Details & Revisions for "Active" Timestamp
-# -------------------------------------------------------------------
-now = datetime.now(timezone.utc)
-thirty_days_ago = now - timedelta(days=30)
-parsed_tickets = []
-
-for work_item_id in item_ids:
-    # Get Revisions history to find when state changed to 'Active' / 'In Progress'
-    revisions_url = (
-        f"{base_url}/wit/workitems/{work_item_id}/revisions?api-version=7.0"
-    )
-    rev_response = requests.get(revisions_url, auth=auth)
-    if rev_response.status_code != 200:
-        continue
-
-    revisions = rev_response.json().get("value", [])
-
-    title = ""
-    assignee = "Unassigned"
-    current_state = ""
-    active_timestamp = None
-    resolved_timestamp = None
-
-    for rev in revisions:
-        fields = rev.get("fields", {})
-
-        # Track basic info from latest revision snapshot
-        title = fields.get("System.Title", title)
-        current_state = fields.get("System.State", current_state)
-
-        assigned_to = fields.get("System.AssignedTo", {})
-        if isinstance(assigned_to, dict):
-            assignee = assigned_to.get("displayName", "Unassigned")
-
-        changed_date = fields.get("System.ChangedDate")
-        state = fields.get("System.State")
-
-        # Capture first time item transitioned to an Active state
-        if state in ACTIVE_STATES and not active_timestamp:
-            active_timestamp = changed_date
-
-        # Capture when item transitioned to Done/Closed
-        if state in DONE_STATES:
-            resolved_timestamp = changed_date
-
-    # Fallback: If currently active but revision history didn't catch start transition, use creation date
-    if not active_timestamp and current_state in ACTIVE_STATES:
-        active_timestamp = revisions[0]["fields"].get("System.CreatedDate")
-
-    # Only plot items that were actually active within the last 30 days
-    if active_timestamp:
-        start_dt = pd.to_datetime(active_timestamp)
-        end_dt = pd.to_datetime(resolved_timestamp) if resolved_timestamp else now
-
-        if end_dt >= thirty_days_ago:
-            parsed_tickets.append(
-                {
-                    "id": f"#{work_item_id}",
-                    "title": title,
-                    "assignee": assignee,
-                    "state": current_state,
-                    "start": start_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "end": end_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "is_active": resolved_timestamp is None,
-                }
-            )
-
-# -------------------------------------------------------------------
-# 4. Prepare Vis.js Timeline Data
-# -------------------------------------------------------------------
-items = []
-groups = set()
-
-for t in parsed_tickets:
-    groups.add(t["assignee"])
-    items.append(
-        {
-            "id": t["id"],
-            "content": f"<b>{t['id']}</b>: {t['title']}",
-            "start": t["start"],
-            "end": t["end"],
-            "group": t["assignee"],
-            "className": "in-progress" if t["is_active"] else "completed",
-        }
-    )
-
-group_list = [{"id": g, "content": g} for g in sorted(groups)]
-
-# -------------------------------------------------------------------
-# 5. Render HTML Template
-# -------------------------------------------------------------------
-html_content = f"""<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Azure DevOps Timeline (Last 30 Days)</title>
-    <!-- Vis.js Timeline Library -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps Active Work Timeline - Manager Dashboard</title>
+    
     <script type="text/javascript" src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
     <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
 
     <style>
-        body {{
+        :root {
+            --primary: #0078d4;
+            --success: #107c41;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #252729;
+            --text-muted: #605e5c;
+            --border: #e1dfdd;
+        }
+
+        body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 24px;
-            background-color: #f8f9fa;
-            color: #252729;
-        }}
-        h2 {{
-            color: #0078d4; /* Azure Blue */
-            margin-bottom: 8px;
-        }}
-        .subtitle {{
-            color: #575e66;
-            margin-bottom: 20px;
-        }}
-        #timeline {{
-            background: #ffffff;
+            margin: 0;
+            padding: 24px;
+            background-color: var(--bg);
+            color: var(--text-main);
+        }
+
+        .header { margin-bottom: 24px; }
+        .header h1 { margin: 0 0 6px 0; font-size: 24px; color: var(--primary); }
+        .header p { margin: 0; color: var(--text-muted); font-size: 14px; }
+
+        .kpi-container { display: flex; gap: 16px; margin-bottom: 20px; }
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            border: 1px solid #e1dfdd;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }}
-        /* Gantt Bar Styles */
-        .vis-item.in-progress {{
-            background-color: #0078d4;
-            border-color: #005a9e;
-            color: #ffffff;
-        }}
-        .vis-item.completed {{
-            background-color: #107c41;
-            border-color: #0b5a2f;
-            color: #ffffff;
-        }}
-        .vis-label {{
-            font-weight: 600;
-            color: #323130;
-        }}
+            padding: 16px 20px;
+            flex: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .kpi-card .number { font-size: 28px; font-weight: 700; margin-top: 4px; }
+        .kpi-card.total .number { color: var(--primary); }
+        .kpi-card.active .number { color: #d97706; }
+        .kpi-card.completed .number { color: var(--success); }
+        .kpi-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+
+        .controls-bar {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-weight: 600; font-size: 14px; color: var(--text-muted); }
+
+        select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background-color: #fff;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #timeline {
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+
+        .vis-item { border-radius: 4px; font-size: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .vis-item.in-progress { background-color: #0078d4; border-color: #005a9e; color: #ffffff; }
+        .vis-item.completed { background-color: #107c41; border-color: #0b5a2f; color: #ffffff; }
+        .vis-label { font-weight: 600; color: var(--text-main); background-color: #f3f2f1; }
+        .vis-time-axis .vis-text { color: var(--text-muted); }
+
+        .legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; }
     </style>
 </head>
 <body>
 
-    <h2>Azure DevOps Active Work Timeline</h2>
-    <p class="subtitle">Showing tickets active in the last 30 days. Scroll horizontally or drag to navigate time; use <code>Ctrl + Scroll</code> to zoom.</p>
-    
+    <div class="header">
+        <h1>DevOps Team Activity Dashboard</h1>
+        <p>Interactive 30-day view of tickets in active development. Generated on {{ generation_date }}.</p>
+    </div>
+
+    <div class="kpi-container">
+        <div class="kpi-card total">
+            <div class="label">Total Work Items</div>
+            <div class="number" id="kpi-total">0</div>
+        </div>
+        <div class="kpi-card active">
+            <div class="label">Currently Active</div>
+            <div class="number" id="kpi-active">0</div>
+        </div>
+        <div class="kpi-card completed">
+            <div class="label">Completed (Last 30 Days)</div>
+            <div class="number" id="kpi-completed">0</div>
+        </div>
+    </div>
+
+    <div class="controls-bar">
+        <div class="filter-group">
+            <label for="assignee-select">Filter by Assignee:</label>
+            <select id="assignee-select" onchange="applyFilters()">
+                <option value="ALL">All Assignees</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="status-select">Filter by Status:</label>
+            <select id="status-select" onchange="applyFilters()">
+                <option value="ALL">All Statuses</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+            </select>
+        </div>
+    </div>
+
     <div id="timeline"></div>
 
-    <script type="text/javascript">
-        var itemsData = {json.dumps(items)};
-        var groupsData = {json.dumps(group_list)};
+    <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background: #0078d4;"></div><span>In Progress / Active</span></div>
+        <div class="legend-item"><div class="legend-color" style="background: #107c41;"></div><span>Completed</span></div>
+    </div>
 
-        var items = new vis.DataSet(itemsData);
-        var groups = new vis.DataSet(groupsData);
+    <script type="text/javascript">
+        // Data injected from CSV via Python
+        var rawData = {{ raw_data_json }};
+
+        // Populate Assignee Dropdown
+        var assignees = Array.from(new Set(rawData.map(item => item.assignee)));
+        var assigneeSelect = document.getElementById('assignee-select');
+        assignees.sort().forEach(function(a) {
+            var opt = document.createElement('option');
+            opt.value = a;
+            opt.innerHTML = a;
+            assigneeSelect.appendChild(opt);
+        });
+
+        var itemsDataSet = new vis.DataSet();
+        var groupsDataSet = new vis.DataSet();
 
         var container = document.getElementById('timeline');
-        var options = {{
+        var now = new Date("{{ today_str }}");
+        var thirtyDaysAgo = new Date("{{ thirty_days_ago_str }}");
+
+        var options = {
             stack: true,
-            start: '{thirty_days_ago.strftime("%Y-%m-%d")}',
-            end: '{now.strftime("%Y-%m-%d")}',
+            start: thirtyDaysAgo,
+            end: now,
             horizontalScroll: true,
             zoomKey: 'ctrlKey',
             orientation: 'top',
-            maxHeight: '650px'
-        }};
+            maxHeight: '500px'
+        };
 
-        var timeline = new vis.Timeline(container, items, groups, options);
+        var timeline = new vis.Timeline(container, itemsDataSet, groupsDataSet, options);
+
+        function applyFilters() {
+            var selectedAssignee = document.getElementById('assignee-select').value;
+            var selectedStatus = document.getElementById('status-select').value;
+
+            var filtered = rawData.filter(function(item) {
+                var matchesAssignee = (selectedAssignee === 'ALL') || (item.assignee === selectedAssignee);
+                var matchesStatus = (selectedStatus === 'ALL') || (item.status === selectedStatus);
+                return matchesAssignee && matchesStatus;
+            });
+
+            document.getElementById('kpi-total').innerText = filtered.length;
+            document.getElementById('kpi-active').innerText = filtered.filter(i => i.status === 'in-progress').length;
+            document.getElementById('kpi-completed').innerText = filtered.filter(i => i.status === 'completed').length;
+
+            var activeAssignees = Array.from(new Set(filtered.map(i => i.assignee))).sort();
+            var groups = activeAssignees.map(a => ({ id: a, content: a }));
+
+            var items = filtered.map(function(i) {
+                return {
+                    id: i.id,
+                    group: i.assignee,
+                    content: '<b>' + i.id + '</b>: ' + i.title,
+                    start: i.start,
+                    end: i.end,
+                    className: i.status
+                };
+            });
+
+            groupsDataSet.clear();
+            groupsDataSet.add(groups);
+
+            itemsDataSet.clear();
+            itemsDataSet.add(items);
+        }
+
+        applyFilters();
     </script>
 </body>
 </html>
-"""
-
-output_filename = "azure_devops_timeline.html"
-with open(output_filename, "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-print(
-    f"Successfully processed {len(parsed_tickets)} Azure DevOps items into '{output_filename}'"
-)
